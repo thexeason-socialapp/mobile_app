@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "17377405565",
+    "project_id": "thexeason-cd2ab",
+    "storage_bucket": "thexeason-cd2ab.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:17377405565:android:2767517162bf64baad5f14",
+        "android_client_info": {
+          "package_name": "com.example.thexeasonapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCzft_EL13OT0ybaFRjXlvEy9DCEBXcQrU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

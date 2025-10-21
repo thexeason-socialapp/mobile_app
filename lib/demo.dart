@@ -1,5 +1,8 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:thexeasonapp/presentation/features/auth/pages/login_page.dart';
+import 'package:thexeasonapp/presentation/features/auth/widgets/auth_button.dart';
+import 'package:thexeasonapp/src/theme/spacer.dart';
 
 class MainApp extends StatefulWidget {
   const MainApp({super.key});
@@ -47,9 +50,15 @@ class _MainAppState extends State<MainApp> {
       children: [
         //Top Navigation
         _buildTopNavigation(),
+        SizedBox(height: 10),
+        Text(MediaQuery.of(context).size.width.toString()),
+        spacer,
+        AuthButton(action: (){
+          Navigator.of(context).push(MaterialPageRoute(builder: (context)=> LoginPage()));
+        }, title: "Login"),
+        spacer,
         //dummy posts
-       SizedBox(
-        height: 600,
+       Expanded(
          child: ListView.builder(
           itemCount: 5,
           itemBuilder: (context,index) {

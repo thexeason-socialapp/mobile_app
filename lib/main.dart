@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:thexeasonapp/demo.dart';
 import 'package:thexeasonapp/src/onboarding/onboarding.dart';
 import './src/theme/theme.dart';
 
