@@ -11,7 +11,6 @@ class Onboarding extends StatefulWidget {
 }
 
 class _OnboardingState extends State<Onboarding> {
-
   int currentindex = 0;
   List<Widget> pages = [
     const FirstOnboardScreen(),
@@ -22,13 +21,16 @@ class _OnboardingState extends State<Onboarding> {
 
   Widget build(BuildContext context) {
     return  Scaffold(
-      body: PageView(
-        onPageChanged: (index){
-          setState(() {
-            currentindex = index;
-          });
-        },
-        children: pages,
+      body: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 200, vertical: 10),
+        child: PageView(
+          onPageChanged: (index){
+            setState(() {
+              currentindex = index;
+            });
+          },
+          children: pages,
+        ),
       ),
     );
   }

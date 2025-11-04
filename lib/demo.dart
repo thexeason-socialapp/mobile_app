@@ -46,26 +46,29 @@ class _MainAppState extends State<MainApp> {
   }
 
   Widget _buildbody(){
-    return  Column(
-      children: [
-        //Top Navigation
-        _buildTopNavigation(),
-        SizedBox(height: 10),
-        Text(MediaQuery.of(context).size.width.toString()),
-        spacer,
-        AuthButton(action: (){
-          Navigator.of(context).push(MaterialPageRoute(builder: (context)=> LoginPage()));
-        }, title: "Login"),
-        spacer,
-        //dummy posts
-       Expanded(
-         child: ListView.builder(
-          itemCount: 5,
-          itemBuilder: (context,index) {
-          return _buildCard();
-         }),
-       )
-        ],
+    return  Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 410,vertical: 10),
+      child: Column(
+        children: [
+          //Top Navigation
+          _buildTopNavigation(),
+          SizedBox(height: 10),
+          Text(MediaQuery.of(context).size.width.toString()),
+          spacer,
+          AuthButton(action: (){
+            Navigator.of(context).push(MaterialPageRoute(builder: (context)=> LoginPage()));
+          }, title: "Login"),
+          spacer,
+          //dummy posts
+         Expanded(
+           child: ListView.builder(
+            itemCount: 5,
+            itemBuilder: (context,index) {
+            return _buildCard();
+           }),
+         )
+          ],
+      ),
     );
   }
 
