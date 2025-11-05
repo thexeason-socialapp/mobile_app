@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'app_colors.dart';
 import 'app_typography.dart';
 import 'app_spacing.dart';
-import 'app_shadows.dart';
 
 class AppTheme {
   AppTheme._();
@@ -78,8 +77,8 @@ class AppTheme {
     navigationBarTheme: NavigationBarThemeData(
       backgroundColor: AppColors.surfaceLight,
       indicatorColor: AppColors.primary.withOpacity(0.2),
-      iconTheme: MaterialStateProperty.resolveWith((states) {
-        if (states.contains(MaterialState.selected)) {
+      iconTheme: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) {
           return const IconThemeData(
             color: AppColors.primary,
             size: 24,
@@ -383,14 +382,14 @@ class AppTheme {
     
     // ===== Switch Theme =====
     switchTheme: SwitchThemeData(
-      thumbColor: MaterialStateProperty.resolveWith((states) {
-        if (states.contains(MaterialState.selected)) {
+      thumbColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) {
           return AppColors.primary;
         }
         return AppColors.borderLight;
       }),
-      trackColor: MaterialStateProperty.resolveWith((states) {
-        if (states.contains(MaterialState.selected)) {
+      trackColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) {
           return AppColors.primary.withOpacity(0.5);
         }
         return AppColors.borderLight.withOpacity(0.5);
@@ -405,7 +404,7 @@ class AppTheme {
         }
         return Colors.transparent;
       }),
-      checkColor: MaterialStateProperty.all(AppColors.secondary),
+      checkColor: WidgetStateProperty.all(AppColors.secondary),
       side: const BorderSide(
         color: AppColors.borderLight,
         width: 2,
@@ -496,7 +495,7 @@ class AppTheme {
       ),
       indicatorSize: TabBarIndicatorSize.tab,
       dividerColor: AppColors.borderLight,
-      overlayColor: MaterialStateProperty.all(
+      overlayColor: WidgetStateProperty.all(
         AppColors.primary.withOpacity(0.1),
       ),
     ),
@@ -656,8 +655,8 @@ class AppTheme {
     navigationBarTheme: NavigationBarThemeData(
       backgroundColor: AppColors.surfaceDark,
       indicatorColor: AppColors.primary.withOpacity(0.2),
-      iconTheme: MaterialStateProperty.resolveWith((states) {
-        if (states.contains(MaterialState.selected)) {
+      iconTheme: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) {
           return const IconThemeData(
             color: AppColors.primary,
             size: 24,
@@ -967,8 +966,8 @@ class AppTheme {
         }
         return AppColors.borderDark;
       }),
-      trackColor: MaterialStateProperty.resolveWith((states) {
-        if (states.contains(MaterialState.selected)) {
+      trackColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) {
           return AppColors.primary.withOpacity(0.5);
         }
         return AppColors.borderDark.withOpacity(0.5);
@@ -977,13 +976,13 @@ class AppTheme {
     
     // ===== Checkbox Theme =====
     checkboxTheme: CheckboxThemeData(
-      fillColor: MaterialStateProperty.resolveWith((states) {
-        if (states.contains(MaterialState.selected)) {
+      fillColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) {
           return AppColors.primary;
         }
         return Colors.transparent;
       }),
-      checkColor: MaterialStateProperty.all(AppColors.secondary),
+      checkColor: WidgetStateProperty.all(AppColors.secondary),
       side: const BorderSide(
         color: AppColors.borderDark,
         width: 2,
@@ -995,8 +994,8 @@ class AppTheme {
     
     // ===== Radio Theme =====
     radioTheme: RadioThemeData(
-      fillColor: MaterialStateProperty.resolveWith((states) {
-        if (states.contains(MaterialState.selected)) {
+      fillColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) {
           return AppColors.primary;
         }
         return AppColors.borderDark;
