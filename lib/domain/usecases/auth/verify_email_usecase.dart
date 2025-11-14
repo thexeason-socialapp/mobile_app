@@ -1,10 +1,10 @@
 import 'package:dartz/dartz.dart';
 
-import '../../../core/errors/exceptions.dart';
 import '../../../core/errors/failures.dart';
 import '../../repositories/auth_repository.dart';
 
 /// Verify email use case - sends verification email to user
+/// Simplified since repository now returns Either<Failure, T>
 class VerifyEmailUseCase {
   final AuthRepository repository;
 
@@ -13,17 +13,7 @@ class VerifyEmailUseCase {
   /// Execute email verification
   /// Returns [Right(void)] on success, [Left(Failure)] on error
   Future<Either<Failure, void>> call() async {
-    try {
-      await repository.verifyEmail();
-      return const Right(null);
-    } on AuthException catch (e) {
-      return Left(AuthFailure(e.message, code: e.code));
-    } on NetworkException catch (e) {
-      return Left(NetworkFailure(e.message, code: e.code));
-    } on ServerException catch (e) {
-      return Left(ServerFailure(e.message, code: e.code));
-    } catch (e) {
-      return Left(ServerFailure('An unexpected error occurred: ${e.toString()}'));
-    }
+    // Repository already handles error conversion, just pass through
+    return repository.verifyEmail();
   }
 }

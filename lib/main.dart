@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'data/datasources/remote/firebase/firebase_service.dart';
 import 'firebase_options.dart';
 import 'app.dart';
@@ -29,5 +30,9 @@ void main() async {
     DeviceOrientation.portraitDown,
   ]);
   print('Firebase Auth: ${FirebaseService.instance.auth}');
-  runApp(const ThexeasonApp());
+  runApp(
+    const ProviderScope(
+      child: ThexeasonApp(),
+    ),
+  );
 }

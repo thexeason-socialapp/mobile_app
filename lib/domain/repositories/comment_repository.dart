@@ -1,4 +1,4 @@
-/// 💬 COMMENT REPOSITORY INTERFACE
+// / 💬 COMMENT REPOSITORY INTERFACE
 /// Abstract contract defining comment operations
 /// Implementation will be in the data layer
 /// No dependencies on Firebase or external packages

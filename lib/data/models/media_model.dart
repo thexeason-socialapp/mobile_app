@@ -1,7 +1,6 @@
 import '../../domain/entities/media.dart';
 
-/// Data model for Media with JSON serialization
-/// Extends domain entity and adds fromJson/toJson for Firebase
+/// MediaModel - extends Media entity with JSON serialization
 class MediaModel extends Media {
   const MediaModel({
     required super.type,
@@ -13,23 +12,10 @@ class MediaModel extends Media {
     super.height,
   });
 
-  /// Create MediaModel from domain entity
-  factory MediaModel.fromEntity(Media entity) {
-    return MediaModel(
-      type: entity.type,
-      url: entity.url,
-      thumbnail: entity.thumbnail,
-      duration: entity.duration,
-      size: entity.size,
-      width: entity.width,
-      height: entity.height,
-    );
-  }
-
-  /// Create MediaModel from Firestore JSON
+  /// Create MediaModel from JSON (from Firestore)
   factory MediaModel.fromJson(Map<String, dynamic> json) {
     return MediaModel(
-      type: _parseMediaType(json['type'] as String),
+      type: MediaType.values.byName(json['type'] as String),
       url: json['url'] as String,
       thumbnail: json['thumbnail'] as String?,
       duration: json['duration'] as int?,
@@ -39,43 +25,29 @@ class MediaModel extends Media {
     );
   }
 
-  /// Convert to JSON for Firestore
+  /// Convert MediaModel to JSON (for Firestore)
   Map<String, dynamic> toJson() {
     return {
       'type': type.name,
       'url': url,
-      if (thumbnail != null) 'thumbnail': thumbnail,
-      if (duration != null) 'duration': duration,
-      if (size != null) 'size': size,
-      if (width != null) 'width': width,
-      if (height != null) 'height': height,
+      'thumbnail': thumbnail,
+      'duration': duration,
+      'size': size,
+      'width': width,
+      'height': height,
     };
   }
 
-  /// Convert to domain entity
-  Media toEntity() {
-    return Media(
-      type: type,
-      url: url,
-      thumbnail: thumbnail,
-      duration: duration,
-      size: size,
-      width: width,
-      height: height,
+  /// Create MediaModel from Media entity
+  factory MediaModel.fromEntity(Media media) {
+    return MediaModel(
+      type: media.type,
+      url: media.url,
+      thumbnail: media.thumbnail,
+      duration: media.duration,
+      size: media.size,
+      width: media.width,
+      height: media.height,
     );
-  }
-
-  /// Helper to parse MediaType from string
-  static MediaType _parseMediaType(String type) {
-    switch (type.toLowerCase()) {
-      case 'image':
-        return MediaType.image;
-      case 'video':
-        return MediaType.video;
-      case 'voice':
-        return MediaType.voice;
-      default:
-        throw ArgumentError('Invalid media type: $type');
-    }
   }
 }
