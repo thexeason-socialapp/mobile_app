@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart' as user;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dartz/dartz.dart';
 
@@ -10,6 +11,7 @@ import '../../../../domain/usecases/auth/logout_usecase.dart';
 import '../../../../domain/usecases/auth/get_current_user_usecase.dart';
 import '../../../../domain/usecases/auth/reset_password_usecase.dart';
 import '../../../../domain/usecases/auth/verify_email_usecase.dart';
+import '../../../../domain/usecases/auth/check_username_usecase.dart';
 
 // Import your dependency injection providers
 import '../../../../core/di/providers.dart';
@@ -71,6 +73,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
   GetCurrentUserUseCase get _getCurrentUserUseCase => _ref.read(getCurrentUserUseCaseProvider);
   ResetPasswordUseCase get _resetPasswordUseCase => _ref.read(resetPasswordUseCaseProvider);
   VerifyEmailUseCase get _verifyEmailUseCase => _ref.read(verifyEmailUseCaseProvider);
+  CheckUsernameUseCase get _checkUsernameUseCase => _ref.read(checkUsernameUseCaseProvider);
 
   // ===== INITIALIZE AUTH STATE =====
   
@@ -383,6 +386,47 @@ class AuthNotifier extends StateNotifier<AuthState> {
         return ErrorMessages.fromFailure(failure.message);
     }
   }
+  // Add these methods to your AuthProvider/AuthStateNotifier:
+
+/// Check if username is available
+Future<Either<Failure, bool>> checkUsernameAvailable(String username) async {
+  try {
+    state = state.copyWith(isLoading: true);
+    final result = await _checkUsernameUseCase(username);
+    state = state.copyWith(isLoading: false);
+    return result;
+  } catch (e) {
+    state = state.copyWith(isLoading: false);
+    return Left(ServerFailure('Failed to check username: ${e.toString()}'));
+  }
+}
+
+/// Reload current user (to check email verification status)
+Future<void> reloadUser() async {
+  try {
+    // Reload Firebase user
+    await user.FirebaseAuth.instance.currentUser?.reload(); // Use 'user.' prefix
+    
+    // Get updated user
+    final result = await _getCurrentUserUseCase();
+    result.fold(
+      (failure) => state = state.copyWith(error: failure.message),
+      (user) => state = state.copyWith(user: user),
+    );
+  } catch (e) {
+    state = state.copyWith(error: 'Failed to reload user');
+  }
+}
+
+/// Verify email (returns Either for better error handling)
+// Future<Either<Failure, void>> verifyEmail() async {
+//   try {
+//     final result = await _verifyEmailUseCase();
+//     return result;
+//   } catch (e) {
+//     return Left(ServerFailure('Failed to send verification email'));
+//   }
+// }
 }
 
 // ===== MAIN AUTH PROVIDER =====

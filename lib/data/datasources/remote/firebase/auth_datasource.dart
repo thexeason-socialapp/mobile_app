@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../../../core/errors/exceptions.dart';
 import '../../../models/user_model.dart';
@@ -18,60 +19,224 @@ class FirebaseAuthDataSource {
   })  : _auth = auth ?? FirebaseService.instance.auth,
         _firestore = firestore ?? FirebaseService.instance.firestore;
 
-  /// Sign up a new user with email and password
-  /// Creates Firebase Auth user and Firestore user document
-  Future<UserModel> signUp({
-    required String email,
-    required String password,
-    required String username,
-    required String displayName,
-  }) async {
-    try {
-      // Check if username is already taken
-      final usernameExists = await _isUsernameTaken(username);
-      if (usernameExists) {
-        throw const AuthException('Username is already taken', code: 'USERNAME_TAKEN');
-      }
+  // Add this method to your existing FirebaseAuthDataSource class
 
-      // Create Firebase Auth user
-      final credential = await _auth.createUserWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
+/// Check if username is available in Firestore
+/// Returns true if available, false if taken
+// Future<bool> isUsernameAvailable(String username) async {
+//   try {
+//     // Check in the 'usernames' collection in Firestore
+//     // This collection stores: {username: userId} pairs for uniqueness
+//     final doc = await _firestore
+//         .collection('usernames')
+//         .doc(username.toLowerCase()) // Store usernames in lowercase
+//         .get();
+    
+//     // If document doesn't exist, username is available
+//     return !doc.exists;
+    
+//   } catch (e) {
+//     // Log the error and throw an exception
+//     throw ServerException('Failed to check username availability: ${e.toString()}');
+//   }
+// }
 
-      if (credential.user == null) {
-        throw const AuthException('Failed to create user account');
-      }
+// /// Helper method: Reserve username during signup
+// /// Call this after successful Firebase Auth signup
+// Future<void> _reserveUsername(String username, String userId) async {
+//   try {
+//     // Atomic operation to prevent race conditions
+//     await _firestore
+//         .collection('usernames')
+//         .doc(username.toLowerCase())
+//         .set({
+//           'userId': userId,
+//           'username': username, // Store original case
+//           'reservedAt': FieldValue.serverTimestamp(),
+//         });
+        
+//   } catch (e) {
+//     throw ServerException('Failed to reserve username: ${e.toString()}');
+//   }
+// }
 
-      final userId = credential.user!.uid;
-      final now = DateTime.now();
 
-      // Create user document in Firestore
-      final userModel = UserModel(
-        id: userId,
-        email: email,
-        username: username,
-        displayName: displayName,
-        createdAt: now,
-        updatedAt: now,
-      );
 
-      await _firestore
-          .collection('users')
-          .doc(userId)
-          .set(userModel.toJson());
-
-      // Update Firebase Auth display name
-      await credential.user!.updateDisplayName(displayName);
-
-      return userModel;
-    } on firebase_auth.FirebaseAuthException catch (e) {
-      throw _mapFirebaseAuthException(e);
-    } catch (e) {
-      if (e is AuthException) rethrow;
-      throw AuthException('Failed to create account: ${e.toString()}');
+/// Complete production-ready signUp method for FirebaseAuthDataSource
+Future<UserModel> signUp({
+  required String email,
+  required String password,
+  required String username,
+  required String displayName,
+}) async {
+  try {
+    // 1. Validate inputs
+    if (email.trim().isEmpty || password.isEmpty || username.trim().isEmpty || displayName.trim().isEmpty) {
+      throw AuthException('All fields are required', code: 'invalid-input');
     }
+
+    final cleanUsername = username.trim().toLowerCase();
+    final cleanEmail = email.trim().toLowerCase();
+
+    // 2. Check username availability first
+    final isAvailable = await isUsernameAvailable(cleanUsername);
+    if (!isAvailable) {
+      throw AuthException('Username "$username" is already taken', code: 'username-taken');
+    }
+    
+    // 3. Create Firebase Auth user
+    final credential = await _auth.createUserWithEmailAndPassword(
+      email: cleanEmail,
+      password: password,
+    );
+    
+    final firebaseUser = credential.user;
+    if (firebaseUser == null) {
+      throw AuthException('Failed to create user account', code: 'user-creation-failed');
+    }
+    
+    // 4. Reserve the username (atomic operation to prevent race conditions)
+    await _reserveUsername(cleanUsername, firebaseUser.uid);
+    
+    // 5. Send email verification
+    try {
+      await firebaseUser.sendEmailVerification();
+    } catch (e) {
+      // Log but don't fail signup if email verification fails
+      print('Warning: Failed to send verification email: $e');
+    }
+    
+    // 6. Create complete user document in Firestore
+    final now = DateTime.now();
+    final userModel = UserModel(
+      id: firebaseUser.uid,
+      email: cleanEmail,
+      username: username.trim(), // Keep original case for display
+      displayName: displayName.trim(),
+      bio: null, // Will be set later in profile completion
+      avatar: null, // Will be set when user uploads avatar
+      banner: null, // Will be set when user uploads banner
+      followers: 0,
+      following: 0,
+      postsCount: 0,
+      createdAt: now,
+      updatedAt: now,
+      isPrivate: false, // Default to public profile
+      location: null,
+      website: null,
+      phone: null,
+      verified: false, // Will be set by admin later
+      blockedUsers: [], // Empty list initially
+      preferences: UserPreferencesModel(
+        darkMode: false, // Default to light mode
+        notificationsEnabled: true,
+        emailNotifications: true,
+        language: 'en',
+        autoPlayVideos: true,
+        compressMediaOnUpload: true,
+      ),
+    );
+    
+    // 7. Save user document to Firestore
+    await _firestore
+        .collection('users')
+        .doc(firebaseUser.uid)
+        .set(userModel.toJson());
+    
+    // 8. Update display name in Firebase Auth
+    try {
+      await firebaseUser.updateDisplayName(displayName.trim());
+    } catch (e) {
+      // Log but don't fail signup
+      print('Warning: Failed to update display name: $e');
+    }
+    
+    return userModel;
+    
+  } on FirebaseAuthException catch (e) {
+    // Handle specific Firebase Auth errors
+    String message;
+    switch (e.code) {
+      case 'weak-password':
+        message = 'Password is too weak';
+        break;
+      case 'email-already-in-use':
+        message = 'An account already exists with this email';
+        break;
+      case 'invalid-email':
+        message = 'Please enter a valid email address';
+        break;
+      case 'operation-not-allowed':
+        message = 'Email/password accounts are not enabled';
+        break;
+      case 'too-many-requests':
+        message = 'Too many attempts. Please try again later';
+        break;
+      default:
+        message = e.message ?? 'Authentication failed';
+    }
+    throw AuthException(message, code: e.code);
+    
+  } on FirebaseException catch (e) {
+    // Handle Firestore errors
+    throw ServerException('Database error: ${e.message ?? e.toString()}');
+    
+  } catch (e) {
+    // Handle any other errors
+    if (e is AuthException) rethrow;
+    if (e is ServerException) rethrow;
+    throw ServerException('Unexpected error during signup: ${e.toString()}');
   }
+}
+
+/// Helper method: Reserve username in Firestore
+Future<void> _reserveUsername(String username, String userId) async {
+  try {
+    // Use a transaction to ensure atomicity
+    await _firestore.runTransaction((transaction) async {
+      final usernameDoc = _firestore.collection('usernames').doc(username);
+      final usernameSnapshot = await transaction.get(usernameDoc);
+      
+      if (usernameSnapshot.exists) {
+        throw AuthException('Username is already taken', code: 'username-taken');
+      }
+      
+      // Reserve the username
+      transaction.set(usernameDoc, {
+        'userId': userId,
+        'username': username, // Store original case
+        'reservedAt': FieldValue.serverTimestamp(),
+      });
+    });
+        
+  } catch (e) {
+    if (e is AuthException) rethrow;
+    throw ServerException('Failed to reserve username: ${e.toString()}');
+  }
+}
+
+/// Check if username is available in Firestore
+Future<bool> isUsernameAvailable(String username) async {
+  try {
+    final cleanUsername = username.trim().toLowerCase();
+    
+    if (cleanUsername.isEmpty || cleanUsername.length < 3 || cleanUsername.length > 30) {
+      return false; // Invalid username format
+    }
+    
+    // Check in the 'usernames' collection
+    final doc = await _firestore
+        .collection('usernames')
+        .doc(cleanUsername)
+        .get();
+    
+    // Username is available if document doesn't exist
+    return !doc.exists;
+    
+  } catch (e) {
+    throw ServerException('Failed to check username availability: ${e.toString()}');
+  }
+}
 
   /// Login with email and password
   Future<UserModel> login({

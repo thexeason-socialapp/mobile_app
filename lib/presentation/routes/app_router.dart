@@ -3,13 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 // Import all required pages
+import '../../shared/widgets/responsive/responsive_shell.dart';
 import '../features/auth/pages/login_page.dart';
 import '../features/auth/pages/signup_page.dart';
 import '../features/auth/pages/forgot_password_page.dart';
 import '../features/auth/pages/verify_email_page.dart';
 import '../features/auth/providers/auth_state_provider.dart';
-import '../features/onboarding/home_page.dart';
 import '../features/feed/pages/feed_page.dart';
+import '../features/onboarding/home_page.dart';
 import '../features/onboarding/splash_page.dart';
 import '../features/onboarding/welcome_page.dart';
 import '../features/profile/pages/profile_page.dart';
@@ -18,16 +19,51 @@ import '../features/messages/pages/chat_page.dart';
 import '../features/notifications/pages/notifications_page.dart';
 import '../features/settings/pages/settings_page.dart';
 
-/// Secure App Router Configuration
-/// Handles authentication guards, proper initialization, and navigation
+/// Auth Change Notifier - Makes router reactive to auth changes
+/// Auth Change Notifier - Makes router reactive to auth changes
+class AuthChangeNotifier extends ChangeNotifier {
+  final Ref _ref;
+  late final ProviderSubscription<AuthState> _subscription;
+
+  AuthChangeNotifier(this._ref) {
+    // Listen to auth state changes
+    _subscription = _ref.listen<AuthState>(
+      authProvider,
+      (previous, next) {
+        // Only notify if auth status actually changed
+        if (previous?.status != next.status) {
+          print('🔄 Auth state changed: ${previous?.status} → ${next.status}');
+          notifyListeners(); // This triggers router refresh
+        }
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _subscription.close();
+    super.dispose();
+  }
+}
+
+  
+
+/// Secure App Router Configuration with Real-time Auth Reactivity
 class AppRouter {
   final Ref ref;
+  late final AuthChangeNotifier _authChangeNotifier;
 
-  AppRouter(this.ref);
+  AppRouter(this.ref) {
+    _authChangeNotifier = AuthChangeNotifier(ref);
+  }
 
   late final GoRouter router = GoRouter(
     initialLocation: '/splash',
-    debugLogDiagnostics: false, // Set to false for production
+    debugLogDiagnostics: false,
+    
+    // 🔥 KEY FIX: Make router reactive to auth state changes
+    refreshListenable: _authChangeNotifier,
+    
     redirect: _handleRedirect,
     routes: [
       // ===== SPLASH & ONBOARDING =====
@@ -66,45 +102,45 @@ class AppRouter {
 
       // ===== MAIN APP ROUTES (Protected with Shell) =====
       ShellRoute(
-        builder: (context, state, child) => MainShell(child: child),
+        builder: (context, state, child) => ResponsiveShell(child: child),
         routes: [
           GoRoute(
             path: '/home',
             name: 'home',
             builder: (context, state) => const HomePage(),
           ),
-          // GoRoute(
-          //   path: '/feed',
-          //   name: 'feed',
-          //   builder: (context, state) => const FeedPage(),
-          // ),
-          // GoRoute(
-          //   path: '/profile',
-          //   name: 'profile',
-          //   builder: (context, state) => const ProfilePage(),
-          //   routes: [
-          //     GoRoute(
-          //       path: 'edit',
-          //       name: 'edit-profile',
-          //       builder: (context, state) => const EditProfilePage(),
-          //     ),
-          //   ],
-          // ),
-          // GoRoute(
-          //   path: '/messages',
-          //   name: 'messages',
-          //   builder: (context, state) => const ChatPage(), // Temporary
-          // ),
-          // GoRoute(
-          //   path: '/notifications',
-          //   name: 'notifications',
-          //   builder: (context, state) => const NotificationsPage(),
-          // ),
-          // GoRoute(
-          //   path: '/settings',
-          //   name: 'settings',
-          //   builder: (context, state) => const SettingsPage(),
-          // ),
+          GoRoute(
+            path: '/feed',
+            name: 'feed',
+            builder: (context, state) => const FeedPage(),
+          ),
+          GoRoute(
+            path: '/profile',
+            name: 'profile',
+            builder: (context, state) => const ProfilePage(),
+            routes: [
+              GoRoute(
+                path: 'edit',
+                name: 'edit-profile',
+                builder: (context, state) => const EditProfilePage(),
+              ),
+            ],
+          ),
+          GoRoute(
+            path: '/messages',
+            name: 'messages',
+            builder: (context, state) => const ChatPage(), // Temporary
+          ),
+          GoRoute(
+            path: '/notifications',
+            name: 'notifications',
+            builder: (context, state) => const NotificationsPage(),
+          ),
+          GoRoute(
+            path: '/settings',
+            name: 'settings',
+            builder: (context, state) => const SettingsPage(),
+          ),
         ],
       ),
 
@@ -145,13 +181,16 @@ class AppRouter {
     ),
   );
 
-  /// Handle authentication and route guards
+  /// Enhanced redirect logic with better logging
   String? _handleRedirect(BuildContext context, GoRouterState state) {
     final authState = ref.read(authProvider);
     final currentLocation = state.uri.toString();
     
-    // Always allow splash page
-    if (currentLocation == '/splash') {
+    print('🚦 Router redirect check: ${authState.status} at $currentLocation');
+    
+    // Always allow splash page during initial load
+    if (currentLocation == '/splash' && authState.status == AuthStatus.initial) {
+      print('   → Staying at splash (initial)');
       return null;
     }
 
@@ -160,27 +199,40 @@ class AppRouter {
       case AuthStatus.initial:
       case AuthStatus.loading:
         // Still loading, redirect to splash
-        return '/splash';
+        if (currentLocation != '/splash') {
+          print('   → Redirecting to /splash (loading)');
+          return '/splash';
+        }
+        return null;
 
       case AuthStatus.unauthenticated:
         // User not logged in
         if (_isAuthRoute(currentLocation)) {
+          print('   → Staying at auth route: $currentLocation');
           return null; // Allow auth pages
         }
-        return '/welcome'; // Redirect to welcome instead of login
+        if (_isProtectedRoute(currentLocation)) {
+          print('   → Redirecting to /welcome (unauthenticated accessing protected)');
+          return '/welcome'; // Redirect protected routes to welcome
+        }
+        return null;
 
       case AuthStatus.authenticated:
         // User is logged in
         if (_isAuthRoute(currentLocation) || currentLocation == '/splash' || currentLocation == '/welcome') {
+          print('   → Redirecting to /home (authenticated at auth route)');
           return '/home'; // Redirect away from auth pages
         }
+        print('   → Staying at protected route: $currentLocation');
         return null; // Allow protected routes
 
       case AuthStatus.error:
         // Auth error occurred
         if (_isAuthRoute(currentLocation)) {
+          print('   → Staying at auth route (error): $currentLocation');
           return null; // Allow auth pages
         }
+        print('   → Redirecting to /welcome (error)');
         return '/welcome'; // Redirect to welcome with option to login
     }
   }
@@ -211,6 +263,11 @@ class AppRouter {
       '/chat',
     ];
     return protectedRoutes.any((route) => location.startsWith(route));
+  }
+
+  /// Cleanup
+  void dispose() {
+    _authChangeNotifier.dispose();
   }
 }
 
@@ -308,9 +365,16 @@ class BottomNavBar extends ConsumerWidget {
   }
 }
 
-/// Provider for the router
+/// Provider for the router (with proper cleanup)
 final routerProvider = Provider<GoRouter>((ref) {
-  return AppRouter(ref).router;
+  final appRouter = AppRouter(ref);
+  
+  // Cleanup when provider is disposed
+  ref.onDispose(() {
+    appRouter.dispose();
+  });
+  
+  return appRouter.router;
 });
 
 /// Error Page

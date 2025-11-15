@@ -9,6 +9,7 @@ import '../../data/repositories/auth_repository_impl.dart';
 
 // Domain layer
 import '../../domain/repositories/auth_repository.dart';
+import '../../domain/usecases/auth/check_username_usecase.dart';
 import '../../domain/usecases/auth/login_usecase.dart';
 import '../../domain/usecases/auth/sign_up_usecase.dart';
 import '../../domain/usecases/auth/logout_usecase.dart';
@@ -78,4 +79,9 @@ final resetPasswordUseCaseProvider = Provider<ResetPasswordUseCase>((ref) {
 final verifyEmailUseCaseProvider = Provider<VerifyEmailUseCase>((ref) {
   final authRepository = ref.read(authRepositoryProvider);
   return VerifyEmailUseCase(authRepository);
+});
+
+final checkUsernameUseCaseProvider = Provider<CheckUsernameUseCase>((ref) {
+  final authRepository = ref.read(authRepositoryProvider);
+  return CheckUsernameUseCase(authRepository);
 });

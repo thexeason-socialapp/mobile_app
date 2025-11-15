@@ -24,6 +24,10 @@ abstract class AuthRepository {
     required String password,
   });
 
+  /// Check if username is available for registration
+  /// Returns true if available, false if already taken
+  Future<bool> isUsernameAvailable(String username);
+
   /// Logout the current user
   /// Returns [Right(void)] on success, [Left(Failure)] on error
   Future<Either<Failure, void>> logout();

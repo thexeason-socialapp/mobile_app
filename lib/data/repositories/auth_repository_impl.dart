@@ -17,6 +17,10 @@ class AuthRepositoryImpl implements AuthRepository {
   }) : _dataSource = dataSource;
 
   @override
+  Future<bool> isUsernameAvailable(String username) async {
+    return await _dataSource.isUsernameAvailable(username);
+  }
+  @override
   Future<Either<Failure, User>> signUp({
     required String email,
     required String password,

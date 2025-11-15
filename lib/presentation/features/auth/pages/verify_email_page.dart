@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:thexeasonapp/core/extensions/context_extensions.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -55,7 +56,7 @@ class EmailVerificationPage extends ConsumerWidget {
               const SizedBox(height: 16),
               
               Text(
-                'We\'ve sent a verification email to your inbox. Please click the link to verify your account.',
+                'We\'ve sent a verification email to your inbox. Please click the link to verify your account and then refresh this page.',
                 style: AppTypography.body(
                   color: Colors.grey[600],
                 ),
@@ -64,31 +65,34 @@ class EmailVerificationPage extends ConsumerWidget {
               
               const SizedBox(height: 48),
               
-              // Resend Email Button
+              // Check Verification Status Button
               AuthButton(
-                text: 'Resend Verification Email',
+                text: 'I\'ve Verified - Continue',
                 onPressed: () async {
-                  await ref.read(authProvider.notifier).verifyEmail();
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Verification email sent!'),
-                        backgroundColor: Colors.green,
-                      ),
-                    );
-                  }
+                  // Force reload user to check verification status
+                  await ref.read(authProvider.notifier).reloadUser();
+                  
+                  // Router will automatically handle navigation based on verification status
                 },
               ),
               
               const SizedBox(height: 16),
               
-              // Continue Button
+              // Resend Email Button
               OutlinedButton(
-                onPressed: () => context.go('/home'),
+                onPressed: () async {
+                  final result = await ref.read(authProvider.notifier).verifyEmail();
+                  if (context.mounted) {
+                    result.fold(
+                      (failure) => context.showErrorSnackBar(failure.message),
+                      (_) => context.showSuccessSnackBar('Verification email sent!'),
+                    );
+                  }
+                },
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 32),
                 ),
-                child: const Text('Continue to App'),
+                child: const Text('Resend Verification Email'),
               ),
               
               const Spacer(),
@@ -113,7 +117,6 @@ class EmailVerificationPage extends ConsumerWidget {
     );
   }
 }
-
 // Extension for centering widgets
 extension WidgetExtensions on Widget {
   Widget center() => Center(child: this);

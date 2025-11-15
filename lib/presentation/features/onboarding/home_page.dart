@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../auth/providers/auth_state_provider.dart';
 
 /// Home Page - Main landing page for authenticated users
-/// Temporary implementation until full home page is built
+/// Enhanced with better logout handling and auth state awareness
 class HomePage extends ConsumerWidget {
   const HomePage({super.key});
 
@@ -28,18 +27,36 @@ class HomePage extends ConsumerWidget {
           ),
         ),
         actions: [
-          // Notifications
-          IconButton(
-            onPressed: () => context.go('/notifications'),
-            icon: const Icon(
-              Icons.notifications_outlined,
-              color: Color(0xFF111827),
+          // Auth status indicator (for debugging)
+          Container(
+            margin: const EdgeInsets.only(right: 8),
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: _getStatusColor(authState.status),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  _getStatusText(authState.status),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
             ),
           ),
           
           // Settings
           IconButton(
-            onPressed: () => context.go('/settings'),
+            onPressed: () {
+              // TODO: Navigate to settings
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Settings coming soon!')),
+              );
+            },
             icon: const Icon(
               Icons.settings_outlined,
               color: Color(0xFF111827),
@@ -88,6 +105,18 @@ class HomePage extends ConsumerWidget {
                         fontWeight: FontWeight.w300,
                       ),
                     ),
+                    
+                    if (user?.username != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        '@${user!.username}',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Colors.white,
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -117,21 +146,36 @@ class HomePage extends ConsumerWidget {
                       icon: Icons.feed_outlined,
                       title: 'Feed',
                       description: 'See latest posts',
-                      onTap: () => context.go('/feed'),
+                      onTap: () {
+                        // TODO: Navigate to feed
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Feed coming soon!')),
+                        );
+                      },
                     ),
                     
                     _ActionCard(
                       icon: Icons.person_outlined,
                       title: 'Profile',
                       description: 'View your profile',
-                      onTap: () => context.go('/profile'),
+                      onTap: () {
+                        // TODO: Navigate to profile
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Profile coming soon!')),
+                        );
+                      },
                     ),
                     
                     _ActionCard(
                       icon: Icons.message_outlined,
                       title: 'Messages',
                       description: 'Chat with friends',
-                      onTap: () => context.go('/messages'),
+                      onTap: () {
+                        // TODO: Navigate to messages
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Messages coming soon!')),
+                        );
+                      },
                     ),
                     
                     _ActionCard(
@@ -139,11 +183,9 @@ class HomePage extends ConsumerWidget {
                       title: 'Create Post',
                       description: 'Share something new',
                       onTap: () {
-                        // TODO: Implement post creation
+                        // TODO: Navigate to post creation
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Post creation coming soon!'),
-                          ),
+                          const SnackBar(content: Text('Post creation coming soon!')),
                         );
                       },
                     ),
@@ -151,13 +193,50 @@ class HomePage extends ConsumerWidget {
                 ),
               ),
               
+              // Auth Debug Info (remove in production)
+              if (authState.status != AuthStatus.authenticated) ...[
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.red.withOpacity(0.3)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        '⚠️ Auth Status Debug:',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.red,
+                        ),
+                      ),
+                      Text('Status: ${authState.status}'),
+                      if (authState.error != null) 
+                        Text('Error: ${authState.error}'),
+                      Text('User: ${user?.username ?? 'null'}'),
+                    ],
+                  ),
+                ),
+              ],
+              
               // Logout Button
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
-                  onPressed: () => _handleLogout(context, ref),
-                  icon: const Icon(Icons.logout),
-                  label: const Text('Logout'),
+                  onPressed: authState.isLoading 
+                      ? null 
+                      : () => _handleLogout(context, ref),
+                  icon: authState.isLoading 
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.logout),
+                  label: Text(authState.isLoading ? 'Logging out...' : 'Logout'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.red,
                     side: const BorderSide(color: Colors.red),
@@ -172,23 +251,73 @@ class HomePage extends ConsumerWidget {
     );
   }
 
-  /// Handle user logout
+  /// Enhanced logout handler with better feedback
   Future<void> _handleLogout(BuildContext context, WidgetRef ref) async {
-    final result = await ref.read(authProvider.notifier).logout();
+    print('🔴 Logout button pressed');
     
-    result.fold(
-      (failure) {
+    try {
+      final result = await ref.read(authProvider.notifier).logout();
+      
+      result.fold(
+        (failure) {
+          print('❌ Logout failed: ${failure.message}');
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Logout failed: ${failure.message}'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        },
+        (_) {
+          print('✅ Logout successful - router should redirect automatically');
+          // Don't manually navigate - let the reactive router handle it
+        },
+      );
+    } catch (e) {
+      print('❌ Logout error: $e');
+      if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Logout failed: ${failure.message}'),
+            content: Text('Logout error: $e'),
             backgroundColor: Colors.red,
           ),
         );
-      },
-      (_) {
-        // Navigation handled by router redirect
-      },
-    );
+      }
+    }
+  }
+
+  /// Get color for auth status indicator
+  Color _getStatusColor(AuthStatus status) {
+    switch (status) {
+      case AuthStatus.authenticated:
+        return Colors.green;
+      case AuthStatus.unauthenticated:
+        return Colors.red;
+      case AuthStatus.loading:
+        return Colors.orange;
+      case AuthStatus.error:
+        return Colors.red;
+      case AuthStatus.initial:
+        return Colors.grey;
+    }
+  }
+
+  /// Get text for auth status indicator
+  String _getStatusText(AuthStatus status) {
+    switch (status) {
+      case AuthStatus.authenticated:
+        return 'AUTH';
+      case AuthStatus.unauthenticated:
+        return 'UNAUTH';
+      case AuthStatus.loading:
+        return 'LOAD';
+      case AuthStatus.error:
+        return 'ERROR';
+      case AuthStatus.initial:
+        return 'INIT';
+    }
   }
 }
 
