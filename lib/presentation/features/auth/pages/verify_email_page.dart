@@ -8,17 +8,14 @@ import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../providers/auth_state_provider.dart';
 import '../widgets/auth_button.dart';
-// import '../widgets/auth_text_field.dart';
-
-// ===== SPLASH PAGE =====
-
-
-// ===== EMAIL VERIFICATION PAGE =====
 class EmailVerificationPage extends ConsumerWidget {
   const EmailVerificationPage({super.key});
 
   @override
+
   Widget build(BuildContext context, WidgetRef ref) {
+    final authState = ref.watch(authProvider);
+    
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -56,7 +53,7 @@ class EmailVerificationPage extends ConsumerWidget {
               const SizedBox(height: 16),
               
               Text(
-                'We\'ve sent a verification email to your inbox. Please click the link to verify your account and then refresh this page.',
+                'We\'ve sent a verification email to your inbox. Please click the link to verify your account.',
                 style: AppTypography.body(
                   color: Colors.grey[600],
                 ),
@@ -66,26 +63,51 @@ class EmailVerificationPage extends ConsumerWidget {
               const SizedBox(height: 48),
               
               // Check Verification Status Button
-              AuthButton(
-                text: 'I\'ve Verified - Continue',
-                onPressed: () async {
-                  // Force reload user to check verification status
-                  await ref.read(authProvider.notifier).reloadUser();
-                  
-                  // Router will automatically handle navigation based on verification status
-                },
-              ),
+              // Check Verification Status Button
+// Enhanced "I've Verified" button in your EmailVerificationPage
+
+AuthButton(
+  text: 'I\'ve Verified - Check Status',
+  onPressed: () async {
+    print('🔄 User clicked verification check button');
+    
+    await ref.read(authProvider.notifier).reloadUser();
+    
+    // Wait for state to update
+    await Future.delayed(const Duration(milliseconds: 500));
+    
+    final authState = ref.read(authProvider);
+    final user = authState.user;
+    
+    if (context.mounted) {
+      if (user != null && user.isEmailVerified) {
+        context.showSuccessSnackBar('Email verified! Redirecting...');
+        
+        // ✅ FORCE NAVIGATION since router isn't detecting the change
+        await Future.delayed(const Duration(milliseconds: 500));
+        if (context.mounted) {
+          context.go('/home');
+        }
+      } else {
+        context.showErrorSnackBar('Email not yet verified. Please check your inbox.');
+      }
+    }
+  },
+  isLoading: authState.isLoading,
+),
               
               const SizedBox(height: 16),
               
               // Resend Email Button
               OutlinedButton(
-                onPressed: () async {
+                onPressed: authState.isLoading ? null : () async {
+                  print('📧 Resending verification email...');
                   final result = await ref.read(authProvider.notifier).verifyEmail();
+                  
                   if (context.mounted) {
                     result.fold(
                       (failure) => context.showErrorSnackBar(failure.message),
-                      (_) => context.showSuccessSnackBar('Verification email sent!'),
+                      (_) => context.showSuccessSnackBar('Verification email sent! Check your inbox.'),
                     );
                   }
                 },
@@ -95,12 +117,16 @@ class EmailVerificationPage extends ConsumerWidget {
                 child: const Text('Resend Verification Email'),
               ),
               
+              // Show current auth state for debugging
+             
+              
               const Spacer(),
               
               // Logout Button
               TextButton(
-                onPressed: () async {
+                onPressed: authState.isLoading ? null : () async {
                   await ref.read(authProvider.notifier).logout();
+                  context.go('/splash');
                 },
                 child: Text(
                   'Sign out',
@@ -116,8 +142,4 @@ class EmailVerificationPage extends ConsumerWidget {
       ),
     );
   }
-}
-// Extension for centering widgets
-extension WidgetExtensions on Widget {
-  Widget center() => Center(child: this);
 }

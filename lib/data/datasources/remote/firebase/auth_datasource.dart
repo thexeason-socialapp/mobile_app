@@ -19,46 +19,41 @@ class FirebaseAuthDataSource {
   })  : _auth = auth ?? FirebaseService.instance.auth,
         _firestore = firestore ?? FirebaseService.instance.firestore;
 
-  // Add this method to your existing FirebaseAuthDataSource class
+  // Add this method to your FirebaseAuthDataSource:
 
-/// Check if username is available in Firestore
-/// Returns true if available, false if taken
-// Future<bool> isUsernameAvailable(String username) async {
-//   try {
-//     // Check in the 'usernames' collection in Firestore
-//     // This collection stores: {username: userId} pairs for uniqueness
-//     final doc = await _firestore
-//         .collection('usernames')
-//         .doc(username.toLowerCase()) // Store usernames in lowercase
-//         .get();
+/// Get current user with updated email verification status
+Future<UserModel?> getCurrentUser() async {
+  try {
+    final firebaseUser = _auth.currentUser;
+    if (firebaseUser == null) return null;
     
-//     // If document doesn't exist, username is available
-//     return !doc.exists;
+    // ✅ Reload to get latest email verification status
+    await firebaseUser.reload();
+    final refreshedUser = _auth.currentUser;
+    if (refreshedUser == null) return null;
     
-//   } catch (e) {
-//     // Log the error and throw an exception
-//     throw ServerException('Failed to check username availability: ${e.toString()}');
-//   }
-// }
-
-// /// Helper method: Reserve username during signup
-// /// Call this after successful Firebase Auth signup
-// Future<void> _reserveUsername(String username, String userId) async {
-//   try {
-//     // Atomic operation to prevent race conditions
-//     await _firestore
-//         .collection('usernames')
-//         .doc(username.toLowerCase())
-//         .set({
-//           'userId': userId,
-//           'username': username, // Store original case
-//           'reservedAt': FieldValue.serverTimestamp(),
-//         });
-        
-//   } catch (e) {
-//     throw ServerException('Failed to reserve username: ${e.toString()}');
-//   }
-// }
+    // Get user document from Firestore
+    final userDoc = await _firestore
+        .collection('users')
+        .doc(refreshedUser.uid)
+        .get();
+    
+    if (!userDoc.exists) return null;
+    
+    // Parse user data and sync email verification from Firebase Auth
+    final userData = userDoc.data()!;
+    final userModel = UserModel.fromJson(userData);
+    
+    // ✅ Return model with current email verification status from Firebase Auth
+    return userModel.copyWith(
+      isEmailVerified: refreshedUser.emailVerified,
+    );
+    
+  } catch (e) {
+    print('🚨 getCurrentUser error: $e');
+    throw ServerException('Failed to get current user: ${e.toString()}');
+  }
+}
 
 
 
@@ -240,52 +235,59 @@ Future<bool> isUsernameAvailable(String username) async {
 
   /// Login with email and password
   Future<UserModel> login({
-    required String email,
-    required String password,
-  }) async {
-    try {
-      final credential = await _auth.signInWithEmailAndPassword(
-        email: email,
-        password: password,
+  required String email,
+  required String password,
+}) async {
+  try {
+    final credential = await _auth.signInWithEmailAndPassword(
+      email: email,
+      password: password,
+    );
+
+    if (credential.user == null) {
+      throw const AuthException('Login failed');
+    }
+
+    final firebaseUser = credential.user!;
+
+    // Get user data from Firestore
+    final userDoc = await _firestore
+        .collection('users')
+        .doc(firebaseUser.uid)
+        .get();
+
+    if (!userDoc.exists) {
+      // User exists in Auth but not in Firestore, create missing document
+      final userModel = UserModel(
+        id: firebaseUser.uid,
+        email: firebaseUser.email!,
+        username: firebaseUser.email!.split('@')[0],
+        displayName: firebaseUser.displayName ?? 'User',
+        createdAt: DateTime.now(),
+        isEmailVerified: firebaseUser.emailVerified, // ✅ ADD THIS
       );
 
-      if (credential.user == null) {
-        throw const AuthException('Login failed');
-      }
-
-      // Get user data from Firestore
-      final userDoc = await _firestore
+      await _firestore
           .collection('users')
-          .doc(credential.user!.uid)
-          .get();
+          .doc(firebaseUser.uid)
+          .set(userModel.toJson());
 
-      if (!userDoc.exists) {
-        // User exists in Auth but not in Firestore, create missing document
-        final userModel = UserModel(
-          id: credential.user!.uid,
-          email: credential.user!.email!,
-          username: credential.user!.email!.split('@')[0], // Fallback username
-          displayName: credential.user!.displayName ?? 'User',
-          createdAt: DateTime.now(),
-        );
-
-        await _firestore
-            .collection('users')
-            .doc(credential.user!.uid)
-            .set(userModel.toJson());
-
-        return userModel;
-      }
-
-      return UserModel.fromJson(userDoc.data()!);
-    } on firebase_auth.FirebaseAuthException catch (e) {
-      throw _mapFirebaseAuthException(e);
-    } catch (e) {
-      if (e is AuthException) rethrow;
-      throw AuthException('Login failed: ${e.toString()}');
+      return userModel;
     }
-  }
 
+    // ✅ CRITICAL FIX: Sync email verification from Firebase Auth
+    final userModel = UserModel.fromJson(userDoc.data()!);
+    return userModel.copyWith(
+      isEmailVerified: firebaseUser.emailVerified, // This preserves verification status
+    );
+    
+  } on firebase_auth.FirebaseAuthException catch (e) {
+    throw _mapFirebaseAuthException(e);
+  } catch (e) {
+    if (e is AuthException) rethrow;
+    throw AuthException('Login failed: ${e.toString()}');
+  }
+}
   /// Logout current user
   Future<void> logout() async {
     try {
@@ -324,28 +326,28 @@ Future<bool> isUsernameAvailable(String username) async {
   }
 
   /// Get current authenticated user
-  Future<UserModel?> getCurrentUser() async {
-    try {
-      final firebaseUser = _auth.currentUser;
-      if (firebaseUser == null) {
-        return null;
-      }
+  // Future<UserModel?> getCurrentUser() async {
+  //   try {
+  //     final firebaseUser = _auth.currentUser;
+  //     if (firebaseUser == null) {
+  //       return null;
+  //     }
 
-      // Get user data from Firestore
-      final userDoc = await _firestore
-          .collection('users')
-          .doc(firebaseUser.uid)
-          .get();
+  //     // Get user data from Firestore
+  //     final userDoc = await _firestore
+  //         .collection('users')
+  //         .doc(firebaseUser.uid)
+  //         .get();
 
-      if (!userDoc.exists) {
-        return null;
-      }
+  //     if (!userDoc.exists) {
+  //       return null;
+  //     }
 
-      return UserModel.fromJson(userDoc.data()!);
-    } catch (e) {
-      throw AuthException('Failed to get current user: ${e.toString()}');
-    }
-  }
+  //     return UserModel.fromJson(userDoc.data()!);
+  //   } catch (e) {
+  //     throw AuthException('Failed to get current user: ${e.toString()}');
+  //   }
+  // }
 
   /// Listen to authentication state changes
   Stream<UserModel?> authStateChanges() {
@@ -390,6 +392,8 @@ Future<bool> isUsernameAvailable(String username) async {
       // If we can't check, assume it's not taken to avoid blocking signup
       return false;
     }
+
+    
   }
 
   /// Map Firebase Auth exceptions to app exceptions

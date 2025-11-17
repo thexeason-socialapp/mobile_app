@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:thexeasonapp/core/extensions/widget_extensions.dart';
 
 import '../../../../core/theme/app_colors.dart';
@@ -36,33 +37,48 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   }
 
   Future<void> _login() async {
-    // Clear keyboard
-    context.unfocus();
-    
-    // Validate form
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
-
-    // Call login use case through provider
-    final result = await ref.read(authProvider.notifier).login(
-      email: _emailController.text.trim(),
-      password: _passwordController.text,
-    );
-
-    if (mounted) {
-      result.fold(
-        (failure) {
-          // Error is already handled by the provider
-          context.showErrorSnackBar(failure.message);
-        },
-        (user) {
-          context.showSuccessSnackBar('Welcome back, ${user.displayName}!');
-          // Navigation will be handled by app router based on auth state
-        },
-      );
-    }
+  context.unfocus();
+  
+  if (!_formKey.currentState!.validate()) {
+    return;
   }
+
+  final result = await ref.read(authProvider.notifier).login(
+    email: _emailController.text.trim(),
+    password: _passwordController.text,
+  );
+
+  if (mounted) {
+    result.fold(
+      (failure) {
+        print('❌ Login failed: ${failure.message}');
+        
+        // ✅ CLEAR any existing snackbars first
+        ScaffoldMessenger.of(context).clearSnackBars();
+        
+        // Small delay to ensure clearing is complete
+        Future.delayed(const Duration(milliseconds: 100), () {
+          if (mounted) {
+            print('🔍 Showing error snackbar: ${failure.message}');
+            context.showErrorSnackBar(failure.message);
+            
+            // ✅ VERIFY snackbar was added to queue
+            final messenger = ScaffoldMessenger.of(context);
+            print('📱 ScaffoldMessenger available: ${messenger != null}');
+          }
+        });
+      },
+      (user) {
+        ScaffoldMessenger.of(context).clearSnackBars();
+        Future.delayed(const Duration(milliseconds: 100), () {
+          if (mounted) {
+            context.showSuccessSnackBar('Welcome back, ${user.displayName}!');
+          }
+        });
+      },
+    );
+  }
+}
 
   void _navigateToSignUp() {
     Navigator.of(context).push(

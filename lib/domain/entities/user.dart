@@ -21,6 +21,7 @@ class User {
   final String? website;
   final String? phone;
   final bool verified;
+  final bool isEmailVerified;
   final List<String> blockedUsers;
   final UserPreferences preferences;
 
@@ -42,6 +43,7 @@ class User {
     this.website,
     this.phone,
     this.verified = false,
+    this.isEmailVerified = false,
     this.blockedUsers = const [],
     this.preferences = const UserPreferences(),
   });
@@ -65,6 +67,7 @@ class User {
     String? website,
     String? phone,
     bool? verified,
+    bool? isEmailVerified,
     List<String>? blockedUsers,
     UserPreferences? preferences,
   }) {
@@ -86,6 +89,7 @@ class User {
       website: website ?? this.website,
       phone: phone ?? this.phone,
       verified: verified ?? this.verified,
+      isEmailVerified: isEmailVerified ?? this.isEmailVerified,
       blockedUsers: blockedUsers ?? this.blockedUsers,
       preferences: preferences ?? this.preferences,
     );
@@ -103,7 +107,7 @@ class User {
 
   @override
   String toString() {
-    return 'User(id: $id, username: $username, email: $email, displayName: $displayName)';
+    return 'User(id: $id, username: $username, email: $email, displayName: $displayName, emailVerified: $isEmailVerified, verified: $verified)';
   }
 }
 

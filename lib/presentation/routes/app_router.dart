@@ -24,19 +24,95 @@ import '../features/settings/pages/settings_page.dart';
 class AuthChangeNotifier extends ChangeNotifier {
   final Ref _ref;
   late final ProviderSubscription<AuthState> _subscription;
+  
+  // Track previous state to detect meaningful changes
+  AuthState? _previousState;
 
   AuthChangeNotifier(this._ref) {
-    // Listen to auth state changes
+    // Listen to auth state changes with enhanced logic
     _subscription = _ref.listen<AuthState>(
       authProvider,
       (previous, next) {
-        // Only notify if auth status actually changed
-        if (previous?.status != next.status) {
-          print('🔄 Auth state changed: ${previous?.status} → ${next.status}');
-          notifyListeners(); // This triggers router refresh
+        print('🔄 Auth state listener triggered');
+        print('   Previous: ${previous?.status} | User: ${previous?.user?.username} | Email verified: ${previous?.user?.isEmailVerified}');
+        print('   Next: ${next.status} | User: ${next.user?.username} | Email verified: ${next.user?.isEmailVerified}');
+        
+        // Check if we should trigger router refresh
+        final shouldNotify = _shouldNotifyRouter(previous, next);
+        
+        if (shouldNotify) {
+          print('🚦 Triggering router refresh due to meaningful auth state change');
+          
+          // Small delay to ensure state is fully updated
+          Future.delayed(const Duration(milliseconds: 100), () {
+            notifyListeners(); // This triggers router refresh
+          });
+        } else {
+          print('   → No router refresh needed (no meaningful change)');
         }
+        
+        _previousState = next;
       },
     );
+  }
+
+  /// Determines if router should be notified based on auth state changes
+  bool _shouldNotifyRouter(AuthState? previous, AuthState next) {
+    // First time loading - always notify
+    if (previous == null) {
+      return true;
+    }
+
+    // ✅ CRITICAL CASES - Always trigger router refresh for these:
+    
+    // 1. Auth status changed (loading → authenticated, etc.)
+    if (previous.status != next.status) {
+      print('   → Status changed: ${previous.status} → ${next.status}');
+      return true;
+    }
+
+    // 2. User went from null to having a user (signup/login completed)
+    if (previous.user == null && next.user != null) {
+      print('   → User loaded: null → ${next.user!.username}');
+      return true;
+    }
+
+    // 3. User went from having a user to null (logout)
+    if (previous.user != null && next.user == null) {
+      print('   → User cleared: ${previous.user!.username} → null');
+      return true;
+    }
+
+    // 4. ✅ EMAIL VERIFICATION STATUS CHANGED (most important for your case)
+    if (previous.user != null && next.user != null) {
+      final emailVerificationChanged = previous.user!.isEmailVerified != next.user!.isEmailVerified;
+      if (emailVerificationChanged) {
+        print('   → Email verification changed: ${previous.user!.isEmailVerified} → ${next.user!.isEmailVerified}');
+        return true;
+      }
+    }
+
+    // 5. Error state changes
+    if (previous.error != next.error) {
+      print('   → Error state changed: ${previous.error} → ${next.error}');
+      return true;
+    }
+
+    // 6. Loading state changes (important for signup flow)
+    if (previous.isLoading != next.isLoading) {
+      print('   → Loading state changed: ${previous.isLoading} → ${next.isLoading}');
+      // Only notify if loading finished and we have a user
+      return !next.isLoading && next.user != null;
+    }
+
+    // No meaningful change
+    return false;
+  }
+
+  /// Force router refresh (useful for manual triggers)
+  void forceRefresh() {
+    print('🔄 Forcing router refresh manually');
+    notifyListeners();
   }
 
   @override
@@ -45,6 +121,7 @@ class AuthChangeNotifier extends ChangeNotifier {
     super.dispose();
   }
 }
+
 
   
 
@@ -182,89 +259,160 @@ class AppRouter {
   );
 
   /// Enhanced redirect logic with better logging
-  String? _handleRedirect(BuildContext context, GoRouterState state) {
-    final authState = ref.read(authProvider);
-    final currentLocation = state.uri.toString();
-    
-    print('🚦 Router redirect check: ${authState.status} at $currentLocation');
-    
-    // Always allow splash page during initial load
-    if (currentLocation == '/splash' && authState.status == AuthStatus.initial) {
-      print('   → Staying at splash (initial)');
+  /// Enhanced redirect logic with EMAIL VERIFICATION CHECK
+/// 🔥 BULLETPROOF ROUTER REDIRECT - Fixes signup and verification flows
+String? _handleRedirect(BuildContext context, GoRouterState state) {
+  final authState = ref.read(authProvider);
+  final currentLocation = state.uri.toString();
+  
+  print('');
+  print('🚦 =================== ROUTER DEBUG ===================');
+  print('📍 Current Location: $currentLocation');
+  print('🔐 Auth Status: ${authState.status}');
+  print('👤 User: ${authState.user?.username ?? 'null'}');
+  print('📧 Email Verified: ${authState.user?.isEmailVerified ?? 'null'}');
+  print('🔄 Is Loading: ${authState.isLoading}');
+  print('❌ Error: ${authState.error ?? 'null'}');
+
+  // ✅ CRITICAL: Handle splash/initial states properly
+  if (currentLocation == '/splash') {
+    if (authState.status == AuthStatus.initial || authState.status == AuthStatus.loading) {
+      print('✅ DECISION: Staying at splash (loading)');
       return null;
     }
+  }
 
-    // Handle auth status
-    switch (authState.status) {
-      case AuthStatus.initial:
-      case AuthStatus.loading:
-        // Still loading, redirect to splash
-        if (currentLocation != '/splash') {
-          print('   → Redirecting to /splash (loading)');
-          return '/splash';
-        }
-        return null;
-
-      case AuthStatus.unauthenticated:
-        // User not logged in
-        if (_isAuthRoute(currentLocation)) {
-          print('   → Staying at auth route: $currentLocation');
-          return null; // Allow auth pages
-        }
-        if (_isProtectedRoute(currentLocation)) {
-          print('   → Redirecting to /welcome (unauthenticated accessing protected)');
-          return '/welcome'; // Redirect protected routes to welcome
-        }
-        return null;
-
-      case AuthStatus.authenticated:
-        // User is logged in
-        if (_isAuthRoute(currentLocation) || currentLocation == '/splash' || currentLocation == '/welcome') {
-          print('   → Redirecting to /home (authenticated at auth route)');
-          return '/home'; // Redirect away from auth pages
-        }
-        print('   → Staying at protected route: $currentLocation');
-        return null; // Allow protected routes
-
-      case AuthStatus.error:
-        // Auth error occurred
-        if (_isAuthRoute(currentLocation)) {
-          print('   → Staying at auth route (error): $currentLocation');
-          return null; // Allow auth pages
-        }
-        print('   → Redirecting to /welcome (error)');
-        return '/welcome'; // Redirect to welcome with option to login
+  // ✅ CORE ROUTING LOGIC - Priority order matters!
+  
+  if (authState.status == AuthStatus.loading || authState.status == AuthStatus.initial) {
+  // ✅ FIX: Don't redirect auth routes to splash during loading
+  if (_isAuthRoute(currentLocation)) {
+    print('✅ DECISION: Staying at auth route during loading: $currentLocation');
+    return null; // Stay on login/signup page during loading
+  }
+  
+  if (currentLocation != '/splash') {
+    print('✅ DECISION: Redirecting to /splash (loading)');
+    return '/splash';
+  }
+  print('✅ DECISION: Staying at splash (loading)');
+  return null;
+}
+  // 2. UNAUTHENTICATED - No user logged in
+  if (authState.status == AuthStatus.unauthenticated || authState.user == null) {
+    print('🚫 STATUS: Unauthenticated or no user');
+    
+    // Allow auth routes
+    if (_isAuthRoute(currentLocation)) {
+      print('✅ DECISION: Staying at auth route: $currentLocation');
+      return null;
     }
+    
+    // Redirect protected routes to welcome
+    if (_isProtectedRoute(currentLocation)) {
+      print('✅ DECISION: Redirecting to /welcome (no user)');
+      return '/welcome';
+    }
+    
+    // Redirect splash to welcome when not authenticated
+    if (currentLocation == '/splash') {
+      print('✅ DECISION: Redirecting to /welcome (not authenticated)');
+      return '/welcome';
+    }
+    
+    print('✅ DECISION: No redirect needed (unauthenticated)');
+    return null;
   }
 
-  /// Check if route is an authentication route
-  bool _isAuthRoute(String location) {
-    final authRoutes = [
-      '/welcome',
-      '/login',
-      '/signup',
-      '/forgot-password',
-      '/verify-email',
-    ];
-    return authRoutes.any((route) => location.startsWith(route));
+  // 3. AUTHENTICATED - User is logged in
+  if (authState.status == AuthStatus.authenticated && authState.user != null) {
+    final user = authState.user!;
+    print('🔐 STATUS: Authenticated user: ${user.username}');
+    print('📧 Email verification status: ${user.isEmailVerified}');
+
+    // ✅ EMAIL NOT VERIFIED - Force email verification
+    if (!user.isEmailVerified) {
+      print('📧 EMAIL NOT VERIFIED');
+      
+      // Already on verification page - stay there
+      if (currentLocation == '/verify-email') {
+        print('✅ DECISION: Staying at email verification page');
+        return null;
+      }
+      
+      // From any other location - go to verification
+      print('✅ DECISION: Redirecting to /verify-email (email not verified)');
+      return '/verify-email';
+    }
+
+    // ✅ EMAIL VERIFIED - Full access
+    print('✅ EMAIL VERIFIED - Full access granted');
+    
+    // Redirect away from auth pages to home
+    if (_isAuthRoute(currentLocation) || currentLocation == '/splash' || currentLocation == '/welcome') {
+      print('✅ DECISION: Redirecting to /home (fully authenticated)');
+      return '/home';
+    }
+    
+    // Stay on protected routes
+    if (_isProtectedRoute(currentLocation)) {
+      print('✅ DECISION: Staying at protected route: $currentLocation');
+      return null;
+    }
+    
+    print('✅ DECISION: No redirect needed (authenticated)');
+    return null;
   }
 
-  /// Check if route is a protected route
-  bool _isProtectedRoute(String location) {
-    final protectedRoutes = [
-      '/home',
-      '/feed',
-      '/profile',
-      '/messages',
-      '/notifications',
-      '/settings',
-      '/user',
-      '/post',
-      '/chat',
-    ];
-    return protectedRoutes.any((route) => location.startsWith(route));
+  // 4. ERROR STATE
+  if (authState.status == AuthStatus.error) {
+  print('❌ STATUS: Error state');
+  print('🔍 Current location: $currentLocation');
+  print('🔍 Is auth route check: ${_isAuthRoute(currentLocation)}');
+  
+  // Allow auth routes during error
+  if (_isAuthRoute(currentLocation)) {
+    print('✅ DECISION: Staying at auth route (error): $currentLocation');
+    return null;
   }
+  
+  print('✅ DECISION: Redirecting to /welcome (error state)');
+  return '/welcome';
+}
 
+  // 5. FALLBACK
+  print('⚠️ FALLBACK: No specific routing rule matched');
+  print('✅ DECISION: No redirect (fallback)');
+  return null;
+}
+
+/// Check if route is an authentication route
+bool _isAuthRoute(String location) {
+  final authRoutes = [
+    '/welcome',
+    '/login',
+    '/signup',
+    '/forgot-password',
+    '/verify-email', // Email verification is part of auth flow
+  ];
+  return authRoutes.any((route) => location.startsWith(route));
+}
+
+/// Check if route is a protected route (requires authentication)
+bool _isProtectedRoute(String location) {
+  final protectedRoutes = [
+    '/home',
+    '/feed',
+    '/profile',
+    '/messages',
+    '/notifications',
+    '/settings',
+    '/user',
+    '/post',
+    '/chat',
+  ];
+  return protectedRoutes.any((route) => location.startsWith(route));
+}
   /// Cleanup
   void dispose() {
     _authChangeNotifier.dispose();
