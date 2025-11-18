@@ -1,14 +1,19 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
+import 'package:logger/logger.dart';
 
 // Data layer
 import '../../data/datasources/remote/firebase/auth_datasource.dart';
 import '../../data/datasources/remote/firebase/firebase_service.dart';
+import '../../data/datasources/remote/rest_api/users_api.dart';
+import '../../data/datasources/local/boxes/user_box.dart';
 import '../../data/repositories/auth_repository_impl.dart';
+import '../../data/repositories/user_repository_impl.dart';
 
 // Domain layer
 import '../../domain/repositories/auth_repository.dart';
+import '../../domain/repositories/user_repository.dart';
 import '../../domain/usecases/auth/check_username_usecase.dart';
 import '../../domain/usecases/auth/login_usecase.dart';
 import '../../domain/usecases/auth/sign_up_usecase.dart';
@@ -84,4 +89,56 @@ final verifyEmailUseCaseProvider = Provider<VerifyEmailUseCase>((ref) {
 final checkUsernameUseCaseProvider = Provider<CheckUsernameUseCase>((ref) {
   final authRepository = ref.read(authRepositoryProvider);
   return CheckUsernameUseCase(authRepository);
+});
+
+// ===== PROFILE PROVIDERS =====
+
+// Storage provider
+final firebaseStorageProvider = Provider((ref) {
+  return FirebaseService.instance.storage;
+});
+
+// Logger provider
+final loggerProvider = Provider((ref) {
+  return Logger(
+    printer: PrettyPrinter(
+      methodCount: 0,
+      errorMethodCount: 5,
+      lineLength: 80,
+      colors: true,
+      printEmojis: true,
+      dateTimeFormat: DateTimeFormat.onlyTimeAndSinceStart,
+    ),
+  );
+});
+
+// Users API provider
+final usersApiProvider = Provider((ref) {
+  final firestore = ref.read(firestoreProvider);
+  final storage = ref.read(firebaseStorageProvider);
+  final logger = ref.read(loggerProvider);
+
+  return UsersApi(
+    firestore: firestore,
+    storage: storage,
+    logger: logger,
+  );
+});
+
+// User Box provider
+final userBoxProvider = Provider((ref) {
+  return UserBox();
+});
+
+// User Repository provider (override the one in profile_state_provider)
+final userRepositoryProvider = Provider<UserRepository>((ref) {
+  final usersApi = ref.read(usersApiProvider);
+  final userBox = ref.read(userBoxProvider);
+  final logger = ref.read(loggerProvider);
+
+  return UserRepositoryImpl(
+    usersApi: usersApi,
+    userBox: userBox,
+    logger: logger,
+  );
 });

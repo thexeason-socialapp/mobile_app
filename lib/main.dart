@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 
 // Import your app files
 import 'data/datasources/remote/firebase/firebase_service.dart';
+import 'data/datasources/local/adapters/user_adapter.dart';
 import 'firebase_options.dart';
 import 'app.dart';
 
@@ -13,18 +15,31 @@ import 'app.dart';
 void main() async {
   // Ensure Flutter is initialized
   WidgetsFlutterBinding.ensureInitialized();
-  
+
+  // Initialize Hive for local caching
+  try {
+    await Hive.initFlutter();
+
+    // Register Hive adapters
+    Hive.registerAdapter(UserAdapter());
+    Hive.registerAdapter(UserPreferencesAdapter());
+
+    print('✅ Hive initialized successfully');
+  } catch (e) {
+    print('❌ Hive initialization failed: $e');
+  }
+
   try {
     // Initialize Firebase
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
-    
+
     // Verify Firebase services are working
     print('✅ Firebase initialized successfully');
     print('✅ Firebase Auth: ${FirebaseService.instance.auth.currentUser?.uid ?? "No user"}');
     print('✅ Firestore: ${FirebaseService.instance.firestore.app.name}');
-    
+
   } catch (e) {
     print('❌ Firebase initialization failed: $e');
     // Don't crash the app, let it handle the error gracefully

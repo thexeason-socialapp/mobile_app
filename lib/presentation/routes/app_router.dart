@@ -194,7 +194,7 @@ class AppRouter {
           GoRoute(
             path: '/profile',
             name: 'profile',
-            builder: (context, state) => const ProfilePage(),
+            builder: (context, state) => const _ProfilePageWrapper(),
             routes: [
               GoRoute(
                 path: 'edit',
@@ -600,31 +600,37 @@ class ErrorPage extends StatelessWidget {
   }
 }
 
-/// Temporary placeholder pages
+/// Wrapper for profile page that gets current user ID from auth state
+class _ProfilePageWrapper extends ConsumerWidget {
+  const _ProfilePageWrapper();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final authState = ref.watch(authProvider);
+    final userId = authState.user?.id;
+
+    // Show loading state while user data is being fetched
+    if (userId == null || userId.isEmpty) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    return ProfilePage(userId: userId);
+  }
+}
+
+/// User profile page - uses the ProfilePage component
 class UserProfilePage extends StatelessWidget {
   final String userId;
-  
+
   const UserProfilePage({super.key, required this.userId});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('User $userId'),
-        backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF111827),
-      ),
-      backgroundColor: Colors.white,
-      body: Center(
-        child: Text(
-          'User Profile: $userId',
-          style: const TextStyle(
-            fontSize: 18,
-            color: Color(0xFF111827),
-          ),
-        ),
-      ),
-    );
+    return ProfilePage(userId: userId);
   }
 }
 
