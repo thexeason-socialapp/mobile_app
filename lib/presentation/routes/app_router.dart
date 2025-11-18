@@ -15,6 +15,8 @@ import '../features/onboarding/splash_page.dart';
 import '../features/onboarding/welcome_page.dart';
 import '../features/profile/pages/profile_page.dart';
 import '../features/profile/pages/edit_profile_page.dart';
+import '../features/profile/pages/followers_page.dart';
+import '../features/profile/pages/following_page.dart';
 import '../features/messages/pages/chat_page.dart';
 import '../features/notifications/pages/notifications_page.dart';
 import '../features/settings/pages/settings_page.dart';
@@ -229,6 +231,24 @@ class AppRouter {
           final userId = state.pathParameters['userId']!;
           return UserProfilePage(userId: userId);
         },
+        routes: [
+          GoRoute(
+            path: 'followers',
+            name: 'user-followers',
+            builder: (context, state) {
+              final userId = state.pathParameters['userId']!;
+              return FollowersPage(userId: userId);
+            },
+          ),
+          GoRoute(
+            path: 'following',
+            name: 'user-following',
+            builder: (context, state) {
+              final userId = state.pathParameters['userId']!;
+              return FollowingPage(userId: userId);
+            },
+          ),
+        ],
       ),
       GoRoute(
         path: '/post/:postId',

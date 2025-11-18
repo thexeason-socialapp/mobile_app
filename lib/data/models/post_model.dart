@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../domain/entities/post.dart';
 import '../../domain/entities/media.dart';
 import 'media_model.dart';
@@ -87,6 +88,12 @@ class PostModel extends Post {
     );
   }
 
+  /// Create PostModel from Firestore document
+  factory PostModel.fromFirestore(DocumentSnapshot doc) {
+    final json = doc.data() as Map<String, dynamic>;
+    return PostModel.fromJson(json);
+  }
+
   /// Create PostModel from Firestore JSON
   factory PostModel.fromJson(Map<String, dynamic> json) {
     return PostModel(
@@ -121,6 +128,11 @@ class PostModel extends Post {
           ? PostMetadataModel.fromJson(json['metadata'] as Map<String, dynamic>)
           : const PostMetadata(),
     );
+  }
+
+  /// Convert to Firestore document data
+  Map<String, dynamic> toFirestore() {
+    return toJson();
   }
 
   /// Convert to JSON for Firestore

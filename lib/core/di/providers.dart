@@ -7,13 +7,16 @@ import 'package:logger/logger.dart';
 import '../../data/datasources/remote/firebase/auth_datasource.dart';
 import '../../data/datasources/remote/firebase/firebase_service.dart';
 import '../../data/datasources/remote/rest_api/users_api.dart';
+import '../../data/datasources/remote/rest_api/posts_api.dart';
 import '../../data/datasources/local/boxes/user_box.dart';
 import '../../data/repositories/auth_repository_impl.dart';
 import '../../data/repositories/user_repository_impl.dart';
+import '../../data/repositories/post_repository_impl.dart';
 
 // Domain layer
 import '../../domain/repositories/auth_repository.dart';
 import '../../domain/repositories/user_repository.dart';
+import '../../domain/repositories/post_repository.dart';
 import '../../domain/usecases/auth/check_username_usecase.dart';
 import '../../domain/usecases/auth/login_usecase.dart';
 import '../../domain/usecases/auth/sign_up_usecase.dart';
@@ -130,7 +133,7 @@ final userBoxProvider = Provider((ref) {
   return UserBox();
 });
 
-// User Repository provider (override the one in profile_state_provider)
+// User Repository provider
 final userRepositoryProvider = Provider<UserRepository>((ref) {
   final usersApi = ref.read(usersApiProvider);
   final userBox = ref.read(userBoxProvider);
@@ -140,5 +143,29 @@ final userRepositoryProvider = Provider<UserRepository>((ref) {
     usersApi: usersApi,
     userBox: userBox,
     logger: logger,
+  );
+});
+
+// ===== POSTS PROVIDERS =====
+
+// Posts API provider
+final postsApiProvider = Provider((ref) {
+  final firestore = ref.read(firestoreProvider);
+  final storage = ref.read(firebaseStorageProvider);
+  final logger = ref.read(loggerProvider);
+
+  return PostsApi(
+    firestore: firestore,
+    storage: storage,
+    logger: logger,
+  );
+});
+
+// Post Repository provider
+final postRepositoryProvider = Provider<PostRepository>((ref) {
+  final postsApi = ref.read(postsApiProvider);
+
+  return PostRepositoryImpl(
+    postsApi: postsApi,
   );
 });

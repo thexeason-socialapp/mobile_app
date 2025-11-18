@@ -1,7 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "Bash(flutter run:*)"
+      "Bash(flutter run:*)",
+      "Bash(flutter analyze:*)",
+      "Bash(find lib/shared/widgets -name \"*.dart\" -exec sh -c 'lines=$(wc -l < \"\"$1\"\"); if [ \"\"$lines\"\" -le 5 ]; then echo \"\"$1 ($lines lines)\"\"; fi' _ {} ;)",
+      "Bash(find \"C:\\flutterprojects\\thexeasonapp\\thexeasonapp\\lib\\presentation\\features\" -name \"*.dart\" -exec sh -c 'lines=$(wc -l < \"\"$1\"\" 2>/dev/null); if [ \"\"$lines\"\" -gt 10 ]; then echo \"\"IMPLEMENTED: $1\"\"; elif [ \"\"$lines\"\" -eq 0 ]; then echo \"\"EMPTY: $1\"\"; else echo \"\"PLACEHOLDER: $1\"\"; fi' _ {} ;)"
     ],
     "deny": [],
     "ask": []

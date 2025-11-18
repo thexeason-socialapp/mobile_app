@@ -1,0 +1,230 @@
+PROFILE FEATURE ARCHITECTURE
+=============================
+
+FOLDER STRUCTURE
+================
+
+lib/presentation/features/profile/
+  pages/
+    profile_page.dart              ✓ FUNCTIONAL (383 lines)
+    edit_profile_page.dart         ✗ STUB (19 lines)
+    followers_page.dart            ✗ EMPTY (0 bytes)
+    following_page.dart            ✗ EMPTY (0 bytes)
+    
+  widgets/
+    avatar_widget.dart             ✓ COMPLETE (141 lines)
+    profile_header.dart            ✓ COMPLETE (326 lines)
+    profile_stats.dart             ✓ COMPLETE (129 lines)
+    follow_button.dart             ✓ COMPLETE (138 lines)
+    posts_grid.dart                ✗ EMPTY (0 bytes)
+    bio_widget.dart                ✗ EMPTY (0 bytes)
+    profile_tabs.dart              ✗ EMPTY (0 bytes)
+    
+  providers/
+    profile_state_provider.dart    ✓ COMPLETE (166 lines)
+    profile_edit_provider.dart     ✗ EMPTY (0 bytes)
+
+
+STATE MANAGEMENT FLOW
+=====================
+
+1. AuthState (from auth_state_provider.dart)
+   └─ Provides current user ID
+      └─ Used in _ProfilePageWrapper to load correct profile
+
+2. ProfileStateProvider (family provider by userId)
+   ├─ Input: userId (String)
+   ├─ Output: ProfileState
+   │  ├─ user: User
+   │  ├─ isLoading: bool
+   │  ├─ error: String?
+   │  ├─ isFollowing: bool
+   │  └─ isOwnProfile: bool
+   └─ Methods:
+      ├─ loadProfile(userId)
+      ├─ followUser()
+      ├─ unfollowUser()
+      └─ refresh()
+
+3. UserRepository (from DI)
+   ├─ getUserById(userId) -> User
+   ├─ isFollowing(followerId, followingId) -> bool
+   ├─ followUser(followerId, followingId)
+   └─ unfollowUser(followerId, followingId)
+      └─ Uses: UsersApi, UserBox
+
+
+ROUTING STRUCTURE
+=================
+
+GoRouter
+├── Protected Routes (ShellRoute)
+│   ├── /profile
+│   │   ├── Main: ProfilePage (with _ProfilePageWrapper)
+│   │   │   └─ Gets userId from currentUser via auth state
+│   │   └── /profile/edit
+│   │       └─ EditProfilePage (not functional yet)
+│   │
+│   ├── /home
+│   ├── /feed
+│   ├── /messages
+│   ├── /notifications
+│   └── /settings
+│
+├── Individual Routes
+│   ├── /user/:userId
+│   │   └─ ProfilePage(userId: userId)
+│   └── /post/:postId
+│       └─ PostDetailsPage
+│
+└── Public Routes
+    ├── /splash
+    ├── /welcome
+    ├── /login
+    ├── /signup
+    ├── /forgot-password
+    └── /verify-email
+
+
+COMPONENT HIERARCHY
+===================
+
+ProfilePage
+├── SliverAppBar
+│   ├── Title (from state.user.displayName)
+│   ├── Settings button (if own profile)
+│   └── Menu (if other user)
+│       ├── Share Profile
+│       ├── Block User
+│       └── Report
+│
+├── ProfileHeader
+│   ├── Banner image
+│   │   └─ user.banner (or placeholder gradient)
+│   ├── Avatar
+│   │   ├─ user.avatar (or initials)
+│   │   └─ Edit overlay (if own profile)
+│   └── User info
+│       ├─ Display name + verification badge
+│       ├─ Username (@handle)
+│       ├─ Bio (if exists)
+│       └─ Location + Website (if exists)
+│       └─ Action button (Edit or Follow)
+│
+├── ProfileStats
+│   ├─ Posts count (tappable)
+│   ├─ Followers count (tappable)
+│   └─ Following count (tappable)
+│
+└── TabBarView (3 tabs)
+    ├─ Posts tab (placeholder currently)
+    ├─ Media tab (placeholder currently)
+    └─ Likes tab (private for non-owners, placeholder)
+
+
+DATA FLOW - LOADING PROFILE
+============================
+
+1. User navigates to /profile/123
+   ↓
+2. ProfilePage receives userId
+   ↓
+3. ProfileStateProvider is created with userId
+   ↓
+4. Future.microtask triggers loadProfile(userId)
+   ↓
+5. ProfileStateNotifier.loadProfile()
+   ├─ Set isLoading = true
+   ├─ Fetch user from UserRepository.getUserById(userId)
+   ├─ Check if own profile (userId == currentUserId)
+   ├─ If not own profile, check isFollowing status
+   └─ Update state with user data
+   ↓
+6. ProfilePage rebuilds with new state
+   ├─ Checks if loading → show spinner
+   ├─ Checks if error → show error screen
+   ├─ Checks if null → show empty
+   └─ Otherwise → render profile
+
+
+DATA FLOW - FOLLOW ACTION
+==========================
+
+1. User taps Follow button
+   ↓
+2. ProfilePage._handleFollowToggle()
+   ├─ Checks state.isFollowing
+   └─ Calls either followUser() or unfollowUser()
+   ↓
+3. ProfileStateNotifier.followUser()
+   ├─ Set isFollowing = true (optimistic)
+   ├─ Increment followers count (optimistic)
+   ├─ Call UserRepository.followUser(currentUserId, targetUserId)
+   ├─ If error, revert state
+   └─ Show error message
+   ↓
+4. ProfilePage rebuilds
+   └─ Button shows "Following" with checkmark
+
+
+DEPENDENCY INJECTION
+====================
+
+DI Container (lib/core/di/providers.dart):
+
+├── Firebase Providers
+│   ├── firebaseAuthProvider → FirebaseAuth
+│   ├── firestoreProvider → FirebaseFirestore
+│   └── firebaseStorageProvider → FirebaseStorage
+│
+├── Data Source Providers
+│   ├── authDataSourceProvider
+│   ├── usersApiProvider
+│   │   └─ UsersApi(firestore, storage, logger)
+│   └── userBoxProvider
+│       └─ UserBox (local storage)
+│
+└── Repository Providers
+    └── userRepositoryProvider
+        └─ UserRepositoryImpl(usersApi, userBox, logger)
+
+
+RESPONSIVE DESIGN
+=================
+
+ProfileHeader handles 3 layouts:
+
+Mobile (< 600dp):
+├─ Banner: 180dp height
+├─ Avatar: 80dp
+├─ Layout: Vertical (avatar below banner)
+└─ Action button: Full width
+
+Tablet (600-900dp):
+├─ Banner: 220dp height
+├─ Avatar: 100dp
+├─ Layout: Vertical (avatar below banner)
+└─ Action button: 200dp width
+
+Desktop (> 900dp):
+├─ Banner: 280dp height
+├─ Avatar: 120dp
+├─ Layout: Horizontal (avatar left, info right)
+├─ Avatar offset: -60dp (overlap with banner)
+└─ Action button: 200dp width
+
+
+COMPLETE STATUS
+===============
+
+✓ Pages:              1 of 4 (ProfilePage only)
+✓ Widgets:           4 of 7 (Avatar, Header, Stats, Follow)
+✓ Providers:         1 of 2 (State only, Edit empty)
+✓ State Management:  Profile state complete
+✓ Routing:           Profile routes configured
+✗ Navigation:        8 items not connected
+✗ Tab Content:       3 tabs empty
+✗ Menu Actions:      3-4 not implemented
+✗ Followers/Following: Pages and routes missing
+
+Overall: ~40% complete

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../core/utils/responsive_extensions.dart';
 import '../providers/profile_state_provider.dart';
 import '../widgets/profile_header.dart';
 import '../widgets/profile_stats.dart';
+import '../widgets/posts_grid.dart';
 
 /// 👤 PROFILE PAGE
 /// Displays user profile with responsive layout
@@ -203,8 +205,13 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
   }
 
   Widget _buildPostsTab(ProfileState state) {
-    // TODO: Implement posts grid
-    return _buildPlaceholder('Posts will appear here');
+    if (state.user?.postsCount == 0) {
+      return _buildPlaceholder('No posts yet');
+    }
+    return PostsGrid(
+      userId: widget.userId,
+      isOwnProfile: state.isOwnProfile,
+    );
   }
 
   Widget _buildMediaTab(ProfileState state) {
@@ -295,17 +302,11 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
 
   // Actions
   void _handleEditProfile() {
-    // TODO: Navigate to edit profile page
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Edit Profile - Coming Soon')),
-    );
+    context.push('/profile/edit');
   }
 
   void _handleSettings() {
-    // TODO: Navigate to settings page
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Settings - Coming Soon')),
-    );
+    context.push('/settings');
   }
 
   void _handleFollowToggle(ProfileState state) {
@@ -367,16 +368,10 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
   }
 
   void _navigateToFollowers(String userId) {
-    // TODO: Navigate to followers page
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Followers - Coming Soon')),
-    );
+    context.push('/user/$userId/followers');
   }
 
   void _navigateToFollowing(String userId) {
-    // TODO: Navigate to following page
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Following - Coming Soon')),
-    );
+    context.push('/user/$userId/following');
   }
 }
