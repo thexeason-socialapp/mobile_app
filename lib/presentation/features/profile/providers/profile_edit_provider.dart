@@ -1,5 +1,5 @@
-import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../../../domain/entities/user.dart';
 import '../../../../domain/repositories/user_repository.dart';
 import '../../../../domain/repositories/storage_repository.dart';
@@ -12,8 +12,10 @@ class ProfileEditState {
   final bool isSaving;
   final String? error;
   final String? successMessage;
-  final File? selectedAvatarImage;
-  final File? selectedBannerImage;
+  // XFile can be used on both web and native platforms
+  final XFile? selectedAvatarImage;
+  // XFile can be used on both web and native platforms
+  final XFile? selectedBannerImage;
 
   const ProfileEditState({
     this.user,
@@ -31,8 +33,8 @@ class ProfileEditState {
     bool? isSaving,
     String? error,
     String? successMessage,
-    File? selectedAvatarImage,
-    File? selectedBannerImage,
+    XFile? selectedAvatarImage,
+    XFile? selectedBannerImage,
     bool clearError = false,
     bool clearSuccess = false,
     bool clearAvatarImage = false,
@@ -99,12 +101,12 @@ class ProfileEditNotifier extends StateNotifier<ProfileEditState> {
   }
 
   /// Select avatar image
-  void selectAvatarImage(File image) {
+  void selectAvatarImage(XFile image) {
     state = state.copyWith(selectedAvatarImage: image);
   }
 
   /// Select banner image
-  void selectBannerImage(File image) {
+  void selectBannerImage(XFile image) {
     state = state.copyWith(selectedBannerImage: image);
   }
 
@@ -165,7 +167,7 @@ class ProfileEditNotifier extends StateNotifier<ProfileEditState> {
   }
 
   /// Upload avatar image
-  Future<bool> uploadAvatar(File imageFile) async {
+  Future<bool> uploadAvatar(XFile imageFile) async {
     if (state.user == null) {
       state = state.copyWith(error: 'User not loaded');
       return false;
@@ -211,7 +213,7 @@ class ProfileEditNotifier extends StateNotifier<ProfileEditState> {
   }
 
   /// Upload banner image
-  Future<bool> uploadBanner(File imageFile) async {
+  Future<bool> uploadBanner(XFile imageFile) async {
     if (state.user == null) {
       state = state.copyWith(error: 'User not loaded');
       return false;

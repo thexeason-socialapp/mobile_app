@@ -53,16 +53,16 @@ class CloudinaryStorageService implements StorageService {
       late int fileSize;
 
       try {
-        // The file parameter is platform-specific:
-        // - On native (iOS/Android/Desktop): dart:io File object
-        // - On web: File object from image_picker that has readAsBytes()
-        // Both implement the same readAsBytes() interface
+        // Both web and native File objects support readAsBytes()
+        // This works because:
+        // - Native: dart:io.File has readAsBytes()
+        // - Web: http.File from image_picker has readAsBytes()
         fileBytes = await file.readAsBytes();
         fileSize = fileBytes.length;
         _logger.d('Successfully read file bytes: $fileSize bytes');
       } catch (e) {
         _logger.e('Error reading file bytes: $e');
-        _logger.d('File type: ${file.runtimeType}, Is String: ${file is String}');
+        _logger.d('File type: ${file.runtimeType}');
         rethrow;
       }
 

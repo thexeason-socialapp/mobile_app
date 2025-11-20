@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -214,7 +215,7 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                 borderRadius: BorderRadius.circular(12),
                 image: editState.selectedBannerImage != null
                     ? DecorationImage(
-                        image: FileImage(editState.selectedBannerImage!),
+                        image: FileImage(File(editState.selectedBannerImage!.path)),
                         fit: BoxFit.cover,
                       )
                     : editState.user?.banner != null
@@ -285,7 +286,7 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
               if (editState.selectedAvatarImage != null)
                 CircleAvatar(
                   radius: 50,
-                  backgroundImage: FileImage(editState.selectedAvatarImage!),
+                  backgroundImage: FileImage(File(editState.selectedAvatarImage!.path)),
                 )
               else
                 AvatarWidget(
@@ -426,9 +427,10 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
     );
 
     if (image != null) {
+      // Store the XFile directly - the provider will handle it
       ref
           .read(profileEditProvider(userId).notifier)
-          .selectAvatarImage(File(image.path));
+          .selectAvatarImage(image);
     }
   }
 
@@ -441,9 +443,10 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
     );
 
     if (image != null) {
+      // Store the XFile directly - the provider will handle it
       ref
           .read(profileEditProvider(userId).notifier)
-          .selectBannerImage(File(image.path));
+          .selectBannerImage(image);
     }
   }
 
