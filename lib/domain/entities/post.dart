@@ -8,7 +8,7 @@ import 'media.dart';
 enum PostVisibility {
   public,
   followers,
-  private,
+  private, followersOnly,
 }
 
 class Post {

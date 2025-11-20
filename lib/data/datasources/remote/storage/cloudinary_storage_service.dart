@@ -324,6 +324,6 @@ class CloudinaryStorageService implements StorageService {
         .join('&');
 
     final signatureString = '$paramsString$_apiSecret';
-    return sha1.convert(signatureString.codeUnits).toString();
+    return sha1.convert(signatureString.codeUnits.toList()).toString();
   }
 }

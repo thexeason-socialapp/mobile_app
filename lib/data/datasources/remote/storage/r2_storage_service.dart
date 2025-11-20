@@ -52,19 +52,12 @@ class R2StorageService implements StorageService {
           : '$path/${timestamp}_$fileName';
 
       // Upload to R2
-      await _client.fPutObject(
+      final fileBytes = await file.readAsBytes();
+      final fileStream = Stream.value(fileBytes);
+      await _client.putObject(
         _bucketName,
         uniquePath,
-        file.path,
-        onProgress: onProgress != null
-            ? (bytes) {
-                final progress = bytes / fileSize;
-                onProgress(progress);
-              }
-            : null,
-        metadata: {
-          'Content-Type': mimeType,
-        },
+        fileStream,
       );
 
       _logger.i('File uploaded successfully to R2: $uniquePath');

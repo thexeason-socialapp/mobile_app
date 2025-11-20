@@ -39,12 +39,12 @@ class _CreatePostPageState extends ConsumerState<CreatePostPage> {
 
   Future<void> _pickImages() async {
     try {
-      final List<XFile> images = await _imagePicker.pickMultipleImages(
+      final List<XFile>? images = await _imagePicker.pickMultiImage(
         maxWidth: 1920,
         imageQuality: 90,
       );
 
-      if (images.isNotEmpty) {
+      if (images != null && images.isNotEmpty) {
         final files = images.map((image) => File(image.path)).toList();
 
         // Validate each file

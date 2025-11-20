@@ -177,10 +177,19 @@ class StorageRepositoryImpl implements StorageRepository {
     try {
       final file = File(filePath);
 
-      // Get temp directory
-      final tempDir = await getTemporaryDirectory();
+      // Try to get temp directory, fallback to app docs directory if it fails
+      late String tempPath;
+      try {
+        final tempDir = await getTemporaryDirectory();
+        tempPath = tempDir.path;
+      } catch (e) {
+        _logger.w('Could not get temp directory, using app docs: $e');
+        final appDir = await getApplicationDocumentsDirectory();
+        tempPath = appDir.path;
+      }
+
       final targetPath = path_helper.join(
-        tempDir.path,
+        tempPath,
         'compressed_${DateTime.now().millisecondsSinceEpoch}.jpg',
       );
 
@@ -198,9 +207,11 @@ class StorageRepositoryImpl implements StorageRepository {
         return filePath;
       }
 
+      _logger.d('Image compressed: $filePath -> ${compressedFile.path}');
       return compressedFile.path;
     } catch (e) {
       _logger.e('Error compressing image: $e');
+      _logger.w('Using original file due to compression error');
       return filePath; // Return original on error
     }
   }
