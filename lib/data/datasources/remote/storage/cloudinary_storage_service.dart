@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:collection';
+import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:logger/logger.dart';
 import 'package:crypto/crypto.dart';
@@ -324,6 +325,7 @@ class CloudinaryStorageService implements StorageService {
         .join('&');
 
     final signatureString = '$paramsString$_apiSecret';
-    return sha1.convert(signatureString.codeUnits.toList()).toString();
+    // Use sha1.convert() with proper encoding
+    return sha1.convert(utf8.encode(signatureString)).toString();
   }
 }
