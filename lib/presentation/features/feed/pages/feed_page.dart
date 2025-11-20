@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../providers/feed_state_provider.dart';
 import '../widgets/post_card.dart';
 import '../../../../shared/widgets/empty_states/empty_feed.dart';
@@ -65,10 +66,7 @@ class _FeedPageState extends ConsumerState<FeedPage> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          // TODO: Navigate to create post
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Create post - Coming soon')),
-          );
+          context.push('/create-post');
         },
         backgroundColor: const Color(0xFFFFC107),
         child: const Icon(Icons.add, color: Colors.white),

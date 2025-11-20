@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../domain/entities/user.dart';
 import '../../../../domain/repositories/user_repository.dart';
+import '../../../../domain/repositories/storage_repository.dart';
 import '../../../../core/di/providers.dart';
 
 /// State for profile editing
@@ -52,12 +53,15 @@ class ProfileEditState {
 /// ProfileEdit Notifier - Manages profile editing state and operations
 class ProfileEditNotifier extends StateNotifier<ProfileEditState> {
   final UserRepository _userRepository;
+  final StorageRepository _storageRepository;
   final String userId;
 
   ProfileEditNotifier({
     required UserRepository userRepository,
+    required StorageRepository storageRepository,
     required this.userId,
   })  : _userRepository = userRepository,
+        _storageRepository = storageRepository,
         super(const ProfileEditState()) {
     _loadUserProfile();
   }
@@ -156,15 +160,27 @@ class ProfileEditNotifier extends StateNotifier<ProfileEditState> {
     state = state.copyWith(isSaving: true, clearError: true);
 
     try {
-      final avatarUrl = await _userRepository.uploadAvatar(
-        userId: userId,
-        imagePath: imageFile.path,
+      // Upload to Cloudinary via StorageRepository
+      final fileName = 'avatar_${userId}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final avatarUrl = await _storageRepository.uploadImage(
+        filePath: imageFile.path,
+        folder: StorageFolder.avatars,
+        fileName: fileName,
+        maxWidth: 300,
+        quality: 90,
       );
 
-      final updatedUser = state.user!.copyWith(avatar: avatarUrl);
+      // Update user profile in Firestore with new avatar URL
+      final updatedUser = await _userRepository.updateProfile(
+        userId: userId,
+        displayName: state.user!.displayName,
+      );
+
+      // Update local state with avatar URL
+      final userWithAvatar = updatedUser.copyWith(avatar: avatarUrl);
 
       state = state.copyWith(
-        user: updatedUser,
+        user: userWithAvatar,
         isSaving: false,
         successMessage: 'Avatar updated successfully',
         clearAvatarImage: true,
@@ -190,15 +206,27 @@ class ProfileEditNotifier extends StateNotifier<ProfileEditState> {
     state = state.copyWith(isSaving: true, clearError: true);
 
     try {
-      final bannerUrl = await _userRepository.uploadBanner(
-        userId: userId,
-        imagePath: imageFile.path,
+      // Upload to Cloudinary via StorageRepository
+      final fileName = 'banner_${userId}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final bannerUrl = await _storageRepository.uploadImage(
+        filePath: imageFile.path,
+        folder: StorageFolder.banners,
+        fileName: fileName,
+        maxWidth: 1200,
+        quality: 85,
       );
 
-      final updatedUser = state.user!.copyWith(banner: bannerUrl);
+      // Update user profile in Firestore with new banner URL
+      final updatedUser = await _userRepository.updateProfile(
+        userId: userId,
+        displayName: state.user!.displayName,
+      );
+
+      // Update local state with banner URL
+      final userWithBanner = updatedUser.copyWith(banner: bannerUrl);
 
       state = state.copyWith(
-        user: updatedUser,
+        user: userWithBanner,
         isSaving: false,
         successMessage: 'Banner updated successfully',
         clearBannerImage: true,
@@ -234,8 +262,10 @@ class ProfileEditNotifier extends StateNotifier<ProfileEditState> {
 final profileEditProvider = StateNotifierProvider.family<ProfileEditNotifier, ProfileEditState, String>(
   (ref, userId) {
     final userRepository = ref.watch(userRepositoryProvider);
+    final storageRepository = ref.watch(storageRepositoryProvider);
     return ProfileEditNotifier(
       userRepository: userRepository,
+      storageRepository: storageRepository,
       userId: userId,
     );
   },

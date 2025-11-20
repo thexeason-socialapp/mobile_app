@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import '../../../../domain/entities/post.dart';
 import '../../../../domain/entities/user.dart';
-import '../../../../domain/repositories/user_repository.dart';
 import '../../../../core/di/providers.dart';
 import '../../auth/providers/auth_state_provider.dart';
 import '../../profile/widgets/avatar_widget.dart';

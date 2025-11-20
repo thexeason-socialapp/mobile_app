@@ -10,6 +10,7 @@ import '../features/auth/pages/forgot_password_page.dart';
 import '../features/auth/pages/verify_email_page.dart';
 import '../features/auth/providers/auth_state_provider.dart';
 import '../features/feed/pages/feed_page.dart';
+import '../features/feed/pages/create_post_page.dart';
 import '../features/onboarding/home_page.dart';
 import '../features/onboarding/splash_page.dart';
 import '../features/onboarding/welcome_page.dart';
@@ -257,6 +258,11 @@ class AppRouter {
           final postId = state.pathParameters['postId']!;
           return PostDetailsPage(postId: postId);
         },
+      ),
+      GoRoute(
+        path: '/create-post',
+        name: 'create-post',
+        builder: (context, state) => const CreatePostPage(),
       ),
       // GoRoute(
       //   path: '/chat/:userId',

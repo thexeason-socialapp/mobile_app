@@ -67,10 +67,22 @@ dependencies:
   logger: ^2.4.0
   uuid: ^4.5.1
   timeago: ^3.7.0
-  
+
   # Security
   flutter_secure_storage: ^9.2.2
   crypto: ^3.0.5
+
+  # Storage Solutions
+  minio: ^3.5.8                           # For R2 (S3-compatible)
+  cloudinary_sdk: ^5.0.0+1                # For Cloudinary
+  flutter_dotenv: ^5.1.0                  # Environment variables
+  http: ^1.2.0
+  mime: ^1.0.4
+  path: ^1.9.0
+
+  # Image processing
+  flutter_image_compress: ^2.3.0
+  video_player: ^2.9.2
 
 
 
@@ -103,6 +115,7 @@ flutter:
   # To add assets to your application, add an assets section, like this:
   assets:
     - assets/images/
+    - .env
   #   - images/a_dot_ham.jpeg
 
   # An image asset can refer to one or more resolution-specific "variants", see

@@ -12,11 +12,20 @@ import '../../data/datasources/local/boxes/user_box.dart';
 import '../../data/repositories/auth_repository_impl.dart';
 import '../../data/repositories/user_repository_impl.dart';
 import '../../data/repositories/post_repository_impl.dart';
+import '../../data/repositories/storage_repository_impl.dart';
+import '../../data/datasources/remote/storage/storage_service.dart';
+import '../../data/datasources/remote/storage/firebase_storage_service.dart';
+import '../../data/datasources/remote/storage/r2_storage_service.dart';
+import '../../data/datasources/remote/storage/cloudinary_storage_service.dart';
 
 // Domain layer
 import '../../domain/repositories/auth_repository.dart';
 import '../../domain/repositories/user_repository.dart';
 import '../../domain/repositories/post_repository.dart';
+import '../../domain/repositories/storage_repository.dart';
+
+// Config
+import '../config/env_config.dart';
 import '../../domain/usecases/auth/check_username_usecase.dart';
 import '../../domain/usecases/auth/login_usecase.dart';
 import '../../domain/usecases/auth/sign_up_usecase.dart';
@@ -167,5 +176,80 @@ final postRepositoryProvider = Provider<PostRepository>((ref) {
 
   return PostRepositoryImpl(
     postsApi: postsApi,
+  );
+});
+
+// ===== STORAGE PROVIDERS =====
+
+// Environment Configuration provider
+final envConfigProvider = FutureProvider<EnvConfig>((ref) async {
+  return await EnvConfig.load();
+});
+
+// Storage Service provider (switches between Cloudinary, R2, and Firebase)
+final storageServiceProvider = Provider<StorageService>((ref) {
+  final envConfigAsync = ref.watch(envConfigProvider);
+  final logger = ref.read(loggerProvider);
+
+  return envConfigAsync.when(
+    data: (config) {
+      // Priority order: Cloudinary > R2 > Firebase
+
+      // 1. Use Cloudinary if configured (RECOMMENDED)
+      if (config.storageProvider == StorageProvider.cloudinary && config.isCloudinaryConfigured) {
+        return CloudinaryStorageService(
+          cloudName: config.cloudinaryCloudName,
+          apiKey: config.cloudinaryApiKey,
+          apiSecret: config.cloudinaryApiSecret,
+          logger: logger,
+        );
+      }
+
+      // 2. Use R2 if configured
+      if (config.storageProvider == StorageProvider.r2 && config.isR2Configured) {
+        return R2StorageService(
+          endpoint: config.r2Endpoint,
+          accessKey: config.r2AccessKey,
+          secretKey: config.r2SecretKey,
+          bucketName: config.r2BucketName,
+          publicUrl: config.r2PublicUrl,
+          logger: logger,
+        );
+      }
+
+      // 3. Fall back to Firebase Storage
+      final storage = ref.read(firebaseStorageProvider);
+      return FirebaseStorageService(
+        storage: storage,
+        logger: logger,
+      );
+    },
+    loading: () {
+      // Default to Firebase while loading
+      final storage = ref.read(firebaseStorageProvider);
+      return FirebaseStorageService(
+        storage: storage,
+        logger: logger,
+      );
+    },
+    error: (_, __) {
+      // Default to Firebase on error
+      final storage = ref.read(firebaseStorageProvider);
+      return FirebaseStorageService(
+        storage: storage,
+        logger: logger,
+      );
+    },
+  );
+});
+
+// Storage Repository provider
+final storageRepositoryProvider = Provider<StorageRepository>((ref) {
+  final storageService = ref.watch(storageServiceProvider);
+  final logger = ref.read(loggerProvider);
+
+  return StorageRepositoryImpl(
+    storageService: storageService,
+    logger: logger,
   );
 });

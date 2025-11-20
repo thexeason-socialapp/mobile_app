@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../domain/entities/post.dart';
-import '../../../../domain/repositories/post_repository.dart';
 import '../../../../core/di/providers.dart';
 import '../widgets/post_card.dart';
 

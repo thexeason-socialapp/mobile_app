@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 // Import your app files
 import 'data/datasources/remote/firebase/firebase_service.dart';
@@ -15,6 +16,14 @@ import 'app.dart';
 void main() async {
   // Ensure Flutter is initialized
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Load environment variables
+  try {
+    await dotenv.load(fileName: '.env');
+    print('✅ Environment variables loaded');
+  } catch (e) {
+    print('⚠️ .env file not found, using defaults');
+  }
 
   // Initialize Hive for local caching
   try {
