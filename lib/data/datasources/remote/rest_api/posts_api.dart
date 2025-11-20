@@ -1,23 +1,19 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:logger/logger.dart';
-import 'dart:io';
 import '../../../../domain/entities/post.dart';
 import '../../../../domain/entities/media.dart';
 import '../../../models/post_model.dart';
 
 /// Posts API - Handles all post-related Firebase operations
+/// Note: Media uploads are handled by StorageRepository via the composer
 class PostsApi {
   final FirebaseFirestore _firestore;
-  final FirebaseStorage _storage;
   final Logger _logger;
 
   PostsApi({
     required FirebaseFirestore firestore,
-    required FirebaseStorage storage,
     required Logger logger,
   })  : _firestore = firestore,
-        _storage = storage,
         _logger = logger;
 
   /// Get feed posts for a user (chronological order)
@@ -94,6 +90,8 @@ class PostsApi {
   }
 
   /// Create a new post
+  /// Note: Media uploads are handled by StorageRepository in the composer
+  /// mediaPaths should contain URLs (already uploaded), not file paths
   Future<Post> createPost({
     required String userId,
     required String content,
@@ -103,14 +101,13 @@ class PostsApi {
     try {
       final postRef = _firestore.collection('posts').doc();
 
-      // Upload media if present
+      // Build media list from already-uploaded URLs
       final List<Media> mediaList = [];
       if (mediaPaths != null && mediaPaths.isNotEmpty) {
-        for (final path in mediaPaths) {
-          final mediaUrl = await _uploadMedia(postRef.id, path);
+        for (final url in mediaPaths) {
           mediaList.add(Media(
-            type: _getMediaType(path),
-            url: mediaUrl,
+            type: _getMediaType(url),
+            url: url,
           ));
         }
       }
@@ -134,22 +131,7 @@ class PostsApi {
     }
   }
 
-  /// Upload media file to Firebase Storage
-  Future<String> _uploadMedia(String postId, String filePath) async {
-    try {
-      final file = File(filePath);
-      final fileName = '${DateTime.now().millisecondsSinceEpoch}_${file.uri.pathSegments.last}';
-      final ref = _storage.ref().child('posts/$postId/$fileName');
-
-      await ref.putFile(file);
-      return await ref.getDownloadURL();
-    } catch (e) {
-      _logger.e('Error uploading media: $e');
-      rethrow;
-    }
-  }
-
-  /// Determine media type from file path
+  /// Determine media type from file path or URL
   MediaType _getMediaType(String path) {
     final extension = path.split('.').last.toLowerCase();
     if (['jpg', 'jpeg', 'png', 'gif', 'webp'].contains(extension)) {

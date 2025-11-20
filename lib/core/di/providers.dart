@@ -160,12 +160,10 @@ final userRepositoryProvider = Provider<UserRepository>((ref) {
 // Posts API provider
 final postsApiProvider = Provider((ref) {
   final firestore = ref.read(firestoreProvider);
-  final storage = ref.read(firebaseStorageProvider);
   final logger = ref.read(loggerProvider);
 
   return PostsApi(
     firestore: firestore,
-    storage: storage,
     logger: logger,
   );
 });
