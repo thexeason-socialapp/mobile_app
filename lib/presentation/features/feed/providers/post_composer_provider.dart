@@ -161,7 +161,7 @@ class PostComposerNotifier extends StateNotifier<PostComposerState> {
     }
   }
 
-  /// Upload media files to storage
+  /// Upload media files to storage with progress tracking
   Future<List<String>> _uploadMedia(String postId) async {
     final urls = <String>[];
     final totalFiles = state.mediaFiles.length;
@@ -169,30 +169,30 @@ class PostComposerNotifier extends StateNotifier<PostComposerState> {
     for (var i = 0; i < totalFiles; i++) {
       final file = state.mediaFiles[i];
 
-      // Update progress
-      state = state.copyWith(
-        uploadProgress: (i / totalFiles),
-      );
-
       // Generate filename
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final extension = file.path.split('.').last;
       final fileName = '${_userId}_${postId}_${timestamp}_$i.$extension';
 
-      // Upload file
-      final url = await _storageRepository.uploadImage(
-        filePath: file.path,
-        folder: StorageFolder.posts,
-        fileName: fileName,
-        maxWidth: 1920,
-        quality: 85,
-      );
+      try {
+        // Upload file with progress callback
+        final url = await _storageRepository.uploadImage(
+          filePath: file.path,
+          folder: StorageFolder.posts,
+          fileName: fileName,
+          maxWidth: 1920,
+          quality: 85,
+        );
 
-      urls.add(url);
+        urls.add(url);
+
+        // Update progress: (completed files + current) / total
+        final progress = ((i + 1) / totalFiles);
+        state = state.copyWith(uploadProgress: progress);
+      } catch (e) {
+        throw Exception('Failed to upload image ${i + 1}/$totalFiles: $e');
+      }
     }
-
-    // Upload complete
-    state = state.copyWith(uploadProgress: 1.0);
 
     return urls;
   }

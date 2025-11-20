@@ -1,12 +1,16 @@
-import 'dart:io';
-
 /// Abstract Storage Service Interface
 /// Allows swapping between different storage providers (Firebase, R2, etc.)
+/// Works on Web, iOS, Android, and Desktop platforms
 abstract class StorageService {
   /// Upload a file to storage
   /// Returns the public URL of the uploaded file
+  ///
+  /// Note: file parameter is platform-specific:
+  /// - Native (iOS/Android/Desktop): dart:io File
+  /// - Web: File from image_picker or file_picker
+  /// Both implement readAsBytes() interface
   Future<UploadResult> uploadFile({
-    required File file,
+    required dynamic file, // File-like object with readAsBytes() method
     required String path,
     required MediaType mediaType,
     Function(double)? onProgress,

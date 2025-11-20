@@ -1,6 +1,6 @@
-import 'dart:io';
 import 'dart:collection';
-import 'dart:convert';
+import 'dart:convert' show utf8, jsonDecode;
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:logger/logger.dart';
 import 'package:crypto/crypto.dart';
@@ -8,7 +8,7 @@ import 'storage_service.dart';
 
 /// Cloudinary Storage Service Implementation
 /// Supports images, videos, audio, and all file types
-/// Provides automatic optimization and transformations
+/// Works across Web, iOS, Android, and Desktop platforms
 class CloudinaryStorageService implements StorageService {
   final String _cloudName;
   final String _apiKey;
@@ -29,13 +29,14 @@ class CloudinaryStorageService implements StorageService {
 
   @override
   Future<UploadResult> uploadFile({
-    required File file,
+    required dynamic file, // File on native platforms, dynamic on web
     required String path,
     required MediaType mediaType,
     Function(double)? onProgress,
   }) async {
     try {
       _logger.d('Uploading file to Cloudinary: $path');
+      _logger.d('Platform: ${kIsWeb ? 'Web' : 'Mobile/Desktop'}');
 
       // Extract folder and filename from path
       final pathParts = path.split('/');
@@ -47,8 +48,25 @@ class CloudinaryStorageService implements StorageService {
       // Determine resource type
       final resourceType = _getResourceType(mediaType);
 
-      // Get file size for progress tracking
-      final fileSize = await file.length();
+      // Read file bytes - platform specific handling
+      late List<int> fileBytes;
+      late int fileSize;
+
+      try {
+        // The file parameter is platform-specific:
+        // - On native (iOS/Android/Desktop): dart:io File object
+        // - On web: File object from image_picker that has readAsBytes()
+        // Both implement the same readAsBytes() interface
+        fileBytes = await file.readAsBytes();
+        fileSize = fileBytes.length;
+        _logger.d('Successfully read file bytes: $fileSize bytes');
+      } catch (e) {
+        _logger.e('Error reading file bytes: $e');
+        _logger.d('File type: ${file.runtimeType}, Is String: ${file is String}');
+        rethrow;
+      }
+
+      _logger.d('File size: $fileSize bytes');
 
       // Create multipart request
       final request = http.MultipartRequest(
@@ -56,12 +74,11 @@ class CloudinaryStorageService implements StorageService {
         Uri.parse('$_uploadUrl/$_cloudName/$resourceType/upload'),
       );
 
-      // Add file
+      // Add file with bytes instead of stream
       request.files.add(
-        http.MultipartFile(
+        http.MultipartFile.fromBytes(
           'file',
-          file.openRead(),
-          fileSize,
+          fileBytes,
           filename: filename,
         ),
       );
@@ -72,32 +89,47 @@ class CloudinaryStorageService implements StorageService {
       request.fields['public_id'] = _extractPublicId(filename);
       request.fields['overwrite'] = 'true';
 
+      _logger.d('Sending multipart request to Cloudinary...');
+
       // Send request
-      final streamedResponse = await request.send();
+      final streamedResponse = await request.send().timeout(
+        const Duration(minutes: 5),
+        onTimeout: () => throw Exception('Upload timeout after 5 minutes'),
+      );
+
       final response = await http.Response.fromStream(streamedResponse);
 
+      _logger.d('Response status: ${response.statusCode}');
+
       if (response.statusCode == 200) {
-        final responseJson = response.body;
         _logger.i('File uploaded successfully to Cloudinary');
 
-        // Extract secure URL from response
-        // Response format: {"secure_url": "https://...", "public_id": "...", ...}
-        final startIndex = responseJson.indexOf('"secure_url":"');
-        if (startIndex != -1) {
-          final urlStart = startIndex + 14;
-          final urlEnd = responseJson.indexOf('"', urlStart);
-          final secureUrl = responseJson.substring(urlStart, urlEnd);
+        // Parse JSON response properly
+        try {
+          final Map<String, dynamic> responseJson = jsonDecode(response.body);
+          final secureUrl = responseJson['secure_url'] as String?;
 
-          return UploadResult(
-            url: secureUrl,
-            path: folder != null ? '$folder/${_extractPublicId(filename)}' : _extractPublicId(filename),
-            size: fileSize,
-            mimeType: _getMimeType(mediaType),
-            uploadedAt: DateTime.now(),
-          );
+          if (secureUrl != null && secureUrl.isNotEmpty) {
+            _logger.i('Upload URL: $secureUrl');
+            return UploadResult(
+              url: secureUrl,
+              path: folder != null ? '$folder/${_extractPublicId(filename)}' : _extractPublicId(filename),
+              size: fileSize,
+              mimeType: _getMimeType(mediaType),
+              uploadedAt: DateTime.now(),
+            );
+          } else {
+            _logger.e('No secure_url in response: ${response.body}');
+            throw Exception('No secure_url returned from Cloudinary');
+          }
+        } catch (e) {
+          _logger.e('Error parsing Cloudinary response: $e');
+          _logger.d('Response body: ${response.body}');
+          rethrow;
         }
       }
 
+      _logger.e('Upload failed with status ${response.statusCode}');
       throw Exception('Cloudinary upload failed: ${response.statusCode} - ${response.body}');
     } catch (e) {
       _logger.e('Error uploading file to Cloudinary: $e');

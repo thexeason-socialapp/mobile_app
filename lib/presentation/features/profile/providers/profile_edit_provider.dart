@@ -62,26 +62,40 @@ class ProfileEditNotifier extends StateNotifier<ProfileEditState> {
     required this.userId,
   })  : _userRepository = userRepository,
         _storageRepository = storageRepository,
-        super(const ProfileEditState()) {
-    _loadUserProfile();
-  }
+        super(const ProfileEditState());
 
   /// Load user profile for editing
-  Future<void> _loadUserProfile() async {
-    state = state.copyWith(isLoading: true, clearError: true);
+  Future<void> loadUserProfile() async {
+    // Check if already disposed
+    if (mounted) {
+      state = state.copyWith(isLoading: true, clearError: true);
 
-    try {
-      final user = await _userRepository.getUserById(userId);
-      state = state.copyWith(
-        user: user,
-        isLoading: false,
-      );
-    } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        error: e.toString(),
-      );
+      try {
+        final user = await _userRepository.getUserById(userId);
+        if (mounted) {
+          state = state.copyWith(
+            user: user,
+            isLoading: false,
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          state = state.copyWith(
+            isLoading: false,
+            error: e.toString(),
+          );
+        }
+      }
     }
+  }
+
+  /// Check if notifier is still mounted
+  @override
+  bool get mounted => !state.toString().contains('disposed');
+
+  /// Initialization method - call this from the provider
+  void init() {
+    loadUserProfile();
   }
 
   /// Select avatar image
@@ -254,7 +268,7 @@ class ProfileEditNotifier extends StateNotifier<ProfileEditState> {
 
   /// Refresh profile data
   Future<void> refresh() async {
-    await _loadUserProfile();
+    await loadUserProfile();
   }
 }
 
@@ -263,10 +277,13 @@ final profileEditProvider = StateNotifierProvider.family<ProfileEditNotifier, Pr
   (ref, userId) {
     final userRepository = ref.watch(userRepositoryProvider);
     final storageRepository = ref.watch(storageRepositoryProvider);
-    return ProfileEditNotifier(
+    final notifier = ProfileEditNotifier(
       userRepository: userRepository,
       storageRepository: storageRepository,
       userId: userId,
     );
+    // Initialize data loading after creation
+    notifier.init();
+    return notifier;
   },
 );

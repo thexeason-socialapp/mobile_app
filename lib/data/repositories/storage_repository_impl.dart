@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:logger/logger.dart';
 import 'package:path_provider/path_provider.dart';
@@ -35,7 +36,9 @@ class StorageRepositoryImpl implements StorageRepository {
       );
 
       // Upload compressed image
-      final file = File(compressedPath);
+      // On web, filePath is already a path string from image_picker
+      // On native, create File object
+      final file = kIsWeb ? compressedPath : File(compressedPath);
       final storagePath = '${_getFolderPath(folder)}/$fileName';
 
       final result = await _storageService.uploadFile(
@@ -44,8 +47,8 @@ class StorageRepositoryImpl implements StorageRepository {
         mediaType: MediaType.image,
       );
 
-      // Clean up compressed file if different from original
-      if (compressedPath != filePath) {
+      // Clean up compressed file if different from original (native only)
+      if (!kIsWeb && compressedPath != filePath) {
         await File(compressedPath).delete();
       }
 
@@ -64,7 +67,8 @@ class StorageRepositoryImpl implements StorageRepository {
     Function(UploadProgress)? onProgress,
   }) async {
     try {
-      final file = File(filePath);
+      // On web, filePath is a path string; on native, create File object
+      final file = kIsWeb ? filePath : File(filePath);
       final storagePath = '${_getFolderPath(folder)}/$fileName';
 
       final result = await _storageService.uploadFile(
@@ -73,12 +77,15 @@ class StorageRepositoryImpl implements StorageRepository {
         mediaType: MediaType.video,
         onProgress: onProgress != null
             ? (progress) {
-                final fileSize = file.lengthSync();
-                onProgress(UploadProgress(
-                  bytesTransferred: (fileSize * progress).toInt(),
-                  totalBytes: fileSize,
-                  percentage: progress * 100,
-                ));
+                // Only call lengthSync on native File objects
+                if (!kIsWeb && file is File) {
+                  final fileSize = file.lengthSync();
+                  onProgress(UploadProgress(
+                    bytesTransferred: (fileSize * progress).toInt(),
+                    totalBytes: fileSize,
+                    percentage: progress * 100,
+                  ));
+                }
               }
             : null,
       );
@@ -97,7 +104,8 @@ class StorageRepositoryImpl implements StorageRepository {
     required String fileName,
   }) async {
     try {
-      final file = File(filePath);
+      // On web, filePath is a path string; on native, create File object
+      final file = kIsWeb ? filePath : File(filePath);
       final storagePath = '${_getFolderPath(folder)}/$fileName';
 
       final result = await _storageService.uploadFile(
@@ -175,6 +183,12 @@ class StorageRepositoryImpl implements StorageRepository {
     int quality = 85,
   }) async {
     try {
+      // Skip compression on web - handled by browser
+      if (kIsWeb) {
+        _logger.d('Web platform: Skipping image compression (browser handles it)');
+        return filePath;
+      }
+
       final file = File(filePath);
 
       // Try to get temp directory, fallback to app docs directory if it fails
@@ -193,7 +207,7 @@ class StorageRepositoryImpl implements StorageRepository {
         'compressed_${DateTime.now().millisecondsSinceEpoch}.jpg',
       );
 
-      // Compress image
+      // Compress image (mobile/desktop only)
       final compressedFile = await FlutterImageCompress.compressAndGetFile(
         file.absolute.path,
         targetPath,

@@ -90,12 +90,43 @@ class _CreatePostPageState extends ConsumerState<CreatePostPage> {
 
     if (!composerState.canPost) return;
 
-    // Show loading
+    // Show progress dialog
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => const Center(
-        child: CircularProgressIndicator(),
+      builder: (context) => PopScope(
+        canPop: false,
+        child: AlertDialog(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Consumer(
+                builder: (context, ref, child) {
+                  final state = ref.watch(postComposerProvider);
+                  return Column(
+                    children: [
+                      CircularProgressIndicator(
+                        value: state.uploadProgress,
+                        valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFFFC107)),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        state.isUploading
+                            ? 'Uploading media...\n${(state.uploadProgress * 100).toInt()}%'
+                            : 'Creating post...',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
       ),
     );
 
@@ -397,21 +428,51 @@ class _CreatePostPageState extends ConsumerState<CreatePostPage> {
   }
 
   Widget _buildUploadProgress(double progress) {
+    final percentage = (progress * 100).toInt();
+    final isComplete = progress >= 1.0;
+
     return Column(
       children: [
         const SizedBox(height: 16),
-        LinearProgressIndicator(
-          value: progress,
-          backgroundColor: Colors.grey[300],
-          valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFFFC107)),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          'Uploading... ${(progress * 100).toInt()}%',
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey[600],
+        // Progress bar with animation
+        ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: LinearProgressIndicator(
+            value: progress,
+            minHeight: 8,
+            backgroundColor: Colors.grey[300],
+            valueColor: AlwaysStoppedAnimation<Color>(
+              isComplete ? Colors.green : const Color(0xFFFFC107),
+            ),
           ),
+        ),
+        const SizedBox(height: 12),
+        // Progress text with icon
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (isComplete)
+              const Icon(Icons.check_circle, color: Colors.green, size: 18)
+            else
+              SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFFFC107)),
+                  strokeWidth: 2,
+                  value: progress,
+                ),
+              ),
+            const SizedBox(width: 8),
+            Text(
+              isComplete ? 'Upload complete!' : 'Uploading... $percentage%',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: isComplete ? Colors.green : Colors.grey[700],
+              ),
+            ),
+          ],
         ),
       ],
     );
