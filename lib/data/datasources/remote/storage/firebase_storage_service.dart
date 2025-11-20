@@ -18,7 +18,7 @@ class FirebaseStorageService implements StorageService {
 
   @override
   Future<UploadResult> uploadFile({
-    required File file,
+    required dynamic file, // File on native platforms, dynamic on web
     required String path,
     required MediaType mediaType,
     Function(double)? onProgress,
@@ -26,9 +26,12 @@ class FirebaseStorageService implements StorageService {
     try {
       _logger.d('Uploading file to Firebase Storage: $path');
 
+      // Cast to File (works on native platforms)
+      final ioFile = file as File;
+
       // Get file info
-      final fileSize = await file.length();
-      final mimeType = lookupMimeType(file.path) ?? _getDefaultMimeType(mediaType);
+      final fileSize = await ioFile.length();
+      final mimeType = lookupMimeType(ioFile.path) ?? _getDefaultMimeType(mediaType);
 
       // Create reference
       final ref = _storage.ref().child(path);
@@ -39,7 +42,7 @@ class FirebaseStorageService implements StorageService {
       );
 
       // Upload task with progress tracking
-      final uploadTask = ref.putFile(file, metadata);
+      final uploadTask = ref.putFile(ioFile, metadata);
 
       // Listen to progress if callback provided
       if (onProgress != null) {

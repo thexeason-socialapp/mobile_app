@@ -32,7 +32,7 @@ class R2StorageService implements StorageService {
 
   @override
   Future<UploadResult> uploadFile({
-    required File file,
+    required dynamic file, // File on native platforms, dynamic on web
     required String path,
     required MediaType mediaType,
     Function(double)? onProgress,
@@ -40,19 +40,22 @@ class R2StorageService implements StorageService {
     try {
       _logger.d('Uploading file to R2: $path');
 
+      // Cast to File (works on native platforms)
+      final ioFile = file as File;
+
       // Get file info
-      final fileSize = await file.length();
-      final mimeType = lookupMimeType(file.path) ?? _getDefaultMimeType(mediaType);
+      final fileSize = await ioFile.length();
+      final mimeType = lookupMimeType(ioFile.path) ?? _getDefaultMimeType(mediaType);
 
       // Generate unique filename if needed
-      final fileName = path_helper.basename(file.path);
+      final fileName = path_helper.basename(ioFile.path);
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final uniquePath = path.endsWith(fileName)
           ? path
           : '$path/${timestamp}_$fileName';
 
       // Upload to R2
-      final fileBytes = await file.readAsBytes();
+      final fileBytes = await ioFile.readAsBytes();
       final fileStream = Stream.value(fileBytes);
       await _client.putObject(
         _bucketName,
