@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import '../../../../shared/widgets/media/cloudinary_image_widget.dart';
 
 /// =d AVATAR WIDGET
 /// Displays user avatar with optional edit overlay
@@ -51,11 +51,12 @@ class AvatarWidget extends StatelessWidget {
             ),
             child: ClipOval(
               child: imageUrl != null && imageUrl!.isNotEmpty
-                  ? CachedNetworkImage(
+                  ? CloudinaryImageWidget(
                       imageUrl: imageUrl!,
+                      transformationType: 'avatar',
                       fit: BoxFit.cover,
-                      placeholder: (context, url) => _buildPlaceholder(primaryColor),
-                      errorWidget: (context, url, error) => _buildInitials(primaryColor),
+                      showLoadingIndicator: true,
+                      errorWidget: _buildInitials(primaryColor),
                     )
                   : _buildInitials(primaryColor),
             ),
@@ -88,21 +89,6 @@ class AvatarWidget extends StatelessWidget {
               ),
             ),
         ],
-      ),
-    );
-  }
-
-  /// Build loading placeholder
-  Widget _buildPlaceholder(Color primaryColor) {
-    return Container(
-      color: Colors.grey[200],
-      child: Center(
-        child: CircularProgressIndicator(
-          strokeWidth: 2,
-          valueColor: AlwaysStoppedAnimation<Color>(
-            primaryColor.withOpacity(0.5),
-          ),
-        ),
       ),
     );
   }

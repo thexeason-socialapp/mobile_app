@@ -259,20 +259,50 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    IconButton(
-                      onPressed: () async {
-                        if (editState.selectedBannerImage != null) {
-                          await ref
-                              .read(profileEditProvider(userId).notifier)
-                              .uploadBanner(editState.selectedBannerImage!);
-                        }
-                      },
-                      icon: const Icon(Icons.check),
-                      style: IconButton.styleFrom(
-                        backgroundColor: const Color(0xFFFFC107),
-                        foregroundColor: Colors.white,
+                    if (editState.isSaving)
+                      SizedBox(
+                        width: 48,
+                        height: 48,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Theme.of(context).colorScheme.primary,
+                          ),
+                        ),
+                      )
+                    else
+                      IconButton(
+                        onPressed: () async {
+                          if (editState.selectedBannerImage != null) {
+                            final navigator = Navigator.of(context);
+                            final messenger = ScaffoldMessenger.of(context);
+
+                            final success = await ref
+                                .read(profileEditProvider(userId).notifier)
+                                .uploadBanner(editState.selectedBannerImage!);
+
+                            if (success) {
+                              messenger.showSnackBar(
+                                const SnackBar(
+                                  content: Text('Banner updated successfully!'),
+                                  backgroundColor: Colors.green,
+                                  duration: Duration(seconds: 2),
+                                ),
+                              );
+                              // Auto-navigate back after brief delay
+                              await Future.delayed(const Duration(milliseconds: 500));
+                              if (mounted) {
+                                navigator.pop();
+                              }
+                            }
+                          }
+                        },
+                        icon: const Icon(Icons.check),
+                        style: IconButton.styleFrom(
+                          backgroundColor: const Color(0xFFFFC107),
+                          foregroundColor: Colors.white,
+                        ),
                       ),
-                    ),
                   ] else
                     IconButton(
                       onPressed: () => _pickBannerImage(userId),
@@ -332,21 +362,50 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                               foregroundColor: Colors.white,
                             ),
                           ),
-                          IconButton(
-                            onPressed: () async {
-                              if (editState.selectedAvatarImage != null) {
-                                await ref
-                                    .read(profileEditProvider(userId).notifier)
-                                    .uploadAvatar(
-                                        editState.selectedAvatarImage!);
-                              }
-                            },
-                            icon: const Icon(Icons.check),
-                            style: IconButton.styleFrom(
-                              backgroundColor: const Color(0xFFFFC107),
-                              foregroundColor: Colors.white,
+                          if (editState.isSaving)
+                            SizedBox(
+                              width: 48,
+                              height: 48,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  Theme.of(context).colorScheme.primary,
+                                ),
+                              ),
+                            )
+                          else
+                            IconButton(
+                              onPressed: () async {
+                                if (editState.selectedAvatarImage != null) {
+                                  final navigator = Navigator.of(context);
+                                  final messenger = ScaffoldMessenger.of(context);
+
+                                  final success = await ref
+                                      .read(profileEditProvider(userId).notifier)
+                                      .uploadAvatar(editState.selectedAvatarImage!);
+
+                                  if (success) {
+                                    messenger.showSnackBar(
+                                      const SnackBar(
+                                        content: Text('Avatar updated successfully!'),
+                                        backgroundColor: Colors.green,
+                                        duration: Duration(seconds: 2),
+                                      ),
+                                    );
+                                    // Auto-navigate back after brief delay
+                                    await Future.delayed(const Duration(milliseconds: 500));
+                                    if (mounted) {
+                                      navigator.pop();
+                                    }
+                                  }
+                                }
+                              },
+                              icon: const Icon(Icons.check),
+                              style: IconButton.styleFrom(
+                                backgroundColor: const Color(0xFFFFC107),
+                                foregroundColor: Colors.white,
+                              ),
                             ),
-                          ),
                         ],
                       )
                     : IconButton(

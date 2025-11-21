@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import '../../../../domain/entities/user.dart';
 import '../../../../core/utils/responsive_extensions.dart';
 import '../../../../core/utils/responsive_widgets.dart';
+import '../../../../shared/widgets/media/cloudinary_image_widget.dart';
 import 'avatar_widget.dart';
 import 'follow_button.dart';
 
@@ -126,13 +126,12 @@ class ProfileHeader extends StatelessWidget {
           color: Theme.of(context).colorScheme.surfaceVariant,
         ),
         child: user.banner != null && user.banner!.isNotEmpty
-            ? CachedNetworkImage(
+            ? CloudinaryImageWidget(
                 imageUrl: user.banner!,
+                transformationType: 'banner',
                 fit: BoxFit.cover,
-                placeholder: (context, url) => Container(
-                  color: Theme.of(context).colorScheme.surfaceVariant,
-                ),
-                errorWidget: (context, url, error) => _buildBannerPlaceholder(context),
+                showLoadingIndicator: true,
+                errorWidget: _buildBannerPlaceholder(context),
               )
             : _buildBannerPlaceholder(context),
       ),
