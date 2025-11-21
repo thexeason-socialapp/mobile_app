@@ -36,9 +36,11 @@ class StorageRepositoryImpl implements StorageRepository {
       );
 
       // Upload compressed image
-      // On web, filePath is already a path string from image_picker
-      // On native, create File object
-      final file = kIsWeb ? compressedPath : File(compressedPath);
+      // On web, blob URLs can't be compressed, so we pass XFile directly
+      // On native, create File object from path
+      final file = kIsWeb
+          ? XFile(compressedPath)  // XFile handles blob URLs on web
+          : File(compressedPath);
       final storagePath = '${_getFolderPath(folder)}/$fileName';
 
       final result = await _storageService.uploadFile(
@@ -67,8 +69,8 @@ class StorageRepositoryImpl implements StorageRepository {
     Function(UploadProgress)? onProgress,
   }) async {
     try {
-      // On web, filePath is a path string; on native, create File object
-      final file = kIsWeb ? filePath : File(filePath);
+      // On web, use XFile for blob URLs; on native, create File object
+      final file = kIsWeb ? XFile(filePath) : File(filePath);
       final storagePath = '${_getFolderPath(folder)}/$fileName';
 
       final result = await _storageService.uploadFile(
@@ -104,8 +106,8 @@ class StorageRepositoryImpl implements StorageRepository {
     required String fileName,
   }) async {
     try {
-      // On web, filePath is a path string; on native, create File object
-      final file = kIsWeb ? filePath : File(filePath);
+      // On web, use XFile for blob URLs; on native, create File object
+      final file = kIsWeb ? XFile(filePath) : File(filePath);
       final storagePath = '${_getFolderPath(folder)}/$fileName';
 
       final result = await _storageService.uploadFile(

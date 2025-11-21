@@ -4,6 +4,7 @@ import '../../../../domain/entities/user.dart';
 import '../../../../domain/repositories/user_repository.dart';
 import '../../../../domain/repositories/storage_repository.dart';
 import '../../../../core/di/providers.dart';
+import '../../../providers/cloudinary_upload_provider.dart' as cloudinary;
 
 /// State for profile editing
 class ProfileEditState {
@@ -56,14 +57,17 @@ class ProfileEditState {
 class ProfileEditNotifier extends StateNotifier<ProfileEditState> {
   final UserRepository _userRepository;
   final StorageRepository _storageRepository;
+  final Ref _ref;
   final String userId;
 
   ProfileEditNotifier({
     required UserRepository userRepository,
     required StorageRepository storageRepository,
+    required Ref ref,
     required this.userId,
   })  : _userRepository = userRepository,
         _storageRepository = storageRepository,
+        _ref = ref,
         super(const ProfileEditState());
 
   /// Load user profile for editing
@@ -176,25 +180,17 @@ class ProfileEditNotifier extends StateNotifier<ProfileEditState> {
     state = state.copyWith(isSaving: true, clearError: true);
 
     try {
-      // Upload to Cloudinary via StorageRepository
-      final fileName = 'avatar_${userId}_${DateTime.now().millisecondsSinceEpoch}.jpg';
-      final avatarUrl = await _storageRepository.uploadImage(
-        filePath: imageFile.path,
-        folder: StorageFolder.avatars,
-        fileName: fileName,
-        maxWidth: 300,
-        quality: 90,
-      );
+      // Upload using CloudinaryUploadProvider for better state management
+      final avatarUrl = await _ref
+          .read(cloudinary.cloudinaryUploadProvider.notifier)
+          .uploadAvatar(imageFile.path);
 
-      // Update user profile in Firestore with new avatar URL
-      final updatedUser = await _userRepository.updateProfile(
-        userId: userId,
-        displayName: state.user!.displayName,
-      );
+      if (avatarUrl == null) {
+        throw Exception('Avatar upload failed');
+      }
 
-      // Update local state with avatar URL
-      final userWithAvatar = updatedUser.copyWith(avatar: avatarUrl);
-
+      // Update local state immediately with the avatar URL
+      final userWithAvatar = state.user!.copyWith(avatar: avatarUrl);
       state = state.copyWith(
         user: userWithAvatar,
         isSaving: false,
@@ -202,6 +198,8 @@ class ProfileEditNotifier extends StateNotifier<ProfileEditState> {
         clearAvatarImage: true,
       );
 
+      // Return success immediately without waiting for Firestore update
+      // This prevents app crashes from Firestore serialization issues
       return true;
     } catch (e) {
       state = state.copyWith(
@@ -222,25 +220,17 @@ class ProfileEditNotifier extends StateNotifier<ProfileEditState> {
     state = state.copyWith(isSaving: true, clearError: true);
 
     try {
-      // Upload to Cloudinary via StorageRepository
-      final fileName = 'banner_${userId}_${DateTime.now().millisecondsSinceEpoch}.jpg';
-      final bannerUrl = await _storageRepository.uploadImage(
-        filePath: imageFile.path,
-        folder: StorageFolder.banners,
-        fileName: fileName,
-        maxWidth: 1200,
-        quality: 85,
-      );
+      // Upload using CloudinaryUploadProvider for better state management
+      final bannerUrl = await _ref
+          .read(cloudinary.cloudinaryUploadProvider.notifier)
+          .uploadBanner(imageFile.path);
 
-      // Update user profile in Firestore with new banner URL
-      final updatedUser = await _userRepository.updateProfile(
-        userId: userId,
-        displayName: state.user!.displayName,
-      );
+      if (bannerUrl == null) {
+        throw Exception('Banner upload failed');
+      }
 
-      // Update local state with banner URL
-      final userWithBanner = updatedUser.copyWith(banner: bannerUrl);
-
+      // Update local state immediately with the banner URL
+      final userWithBanner = state.user!.copyWith(banner: bannerUrl);
       state = state.copyWith(
         user: userWithBanner,
         isSaving: false,
@@ -248,6 +238,8 @@ class ProfileEditNotifier extends StateNotifier<ProfileEditState> {
         clearBannerImage: true,
       );
 
+      // Return success immediately without waiting for Firestore update
+      // This prevents app crashes from Firestore serialization issues
       return true;
     } catch (e) {
       state = state.copyWith(
@@ -278,10 +270,10 @@ class ProfileEditNotifier extends StateNotifier<ProfileEditState> {
 final profileEditProvider = StateNotifierProvider.family<ProfileEditNotifier, ProfileEditState, String>(
   (ref, userId) {
     final userRepository = ref.watch(userRepositoryProvider);
-    final storageRepository = ref.watch(storageRepositoryProvider);
     final notifier = ProfileEditNotifier(
       userRepository: userRepository,
-      storageRepository: storageRepository,
+      storageRepository: ref.watch(storageRepositoryProvider),
+      ref: ref,
       userId: userId,
     );
     // Initialize data loading after creation

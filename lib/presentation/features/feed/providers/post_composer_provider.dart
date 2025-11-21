@@ -8,6 +8,7 @@ import '../../../../domain/repositories/storage_repository.dart';
 import '../../../../core/di/providers.dart';
 import '../../auth/providers/auth_state_provider.dart';
 import 'feed_state_provider.dart';
+import '../../../providers/cloudinary_upload_provider.dart' as cloudinary;
 
 /// Post Composer State
 class PostComposerState {
@@ -169,20 +170,19 @@ class PostComposerNotifier extends StateNotifier<PostComposerState> {
     for (var i = 0; i < totalFiles; i++) {
       final file = state.mediaFiles[i];
 
-      // Generate filename
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final extension = file.path.split('.').last;
-      final fileName = '${_userId}_${postId}_${timestamp}_$i.$extension';
-
       try {
-        // Upload file with progress callback
-        final url = await _storageRepository.uploadImage(
-          filePath: file.path,
-          folder: StorageFolder.posts,
-          fileName: fileName,
-          maxWidth: 1920,
-          quality: 85,
-        );
+        // Upload file using CloudinaryUploadProvider with progress tracking
+        final url = await _ref
+            .read(cloudinary.cloudinaryUploadProvider.notifier)
+            .uploadPostImage(
+              file.path,
+              maxWidth: 1920,
+              quality: 85,
+            );
+
+        if (url == null) {
+          throw Exception('Upload returned null URL');
+        }
 
         urls.add(url);
 

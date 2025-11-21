@@ -21,6 +21,7 @@ import '../features/profile/pages/following_page.dart';
 import '../features/messages/pages/chat_page.dart';
 import '../features/notifications/pages/notifications_page.dart';
 import '../features/settings/pages/settings_page.dart';
+import '../features/storage_test/storage_test_page.dart';
 
 /// Auth Change Notifier - Makes router reactive to auth changes
 /// Auth Change Notifier - Makes router reactive to auth changes
@@ -263,6 +264,11 @@ class AppRouter {
         path: '/create-post',
         name: 'create-post',
         builder: (context, state) => const CreatePostPage(),
+      ),
+      GoRoute(
+        path: '/storage-test',
+        name: 'storage-test',
+        builder: (context, state) => const StorageTestPage(),
       ),
       // GoRoute(
       //   path: '/chat/:userId',

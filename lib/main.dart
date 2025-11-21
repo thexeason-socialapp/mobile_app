@@ -10,6 +10,8 @@ import 'data/datasources/remote/firebase/firebase_service.dart';
 import 'data/datasources/local/adapters/user_adapter.dart';
 import 'firebase_options.dart';
 import 'app.dart';
+import 'core/config/cloudinary_config.dart';
+import 'core/config/env_config.dart';
 
 /// Main entry point for Thexeason App
 /// Handles initialization and app startup
@@ -23,6 +25,15 @@ void main() async {
     print('✅ Environment variables loaded');
   } catch (e) {
     print('⚠️ .env file not found, using defaults');
+  }
+
+  // Initialize Cloudinary configuration
+  try {
+    final envConfig = await EnvConfig.load();
+    CloudinaryConfig.initialize(envConfig);
+    print('✅ Cloudinary configured: ${envConfig.cloudinaryCloudName}');
+  } catch (e) {
+    print('⚠️ Cloudinary initialization failed: $e');
   }
 
   // Initialize Hive for local caching

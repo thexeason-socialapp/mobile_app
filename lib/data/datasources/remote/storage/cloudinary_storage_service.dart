@@ -4,9 +4,11 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:logger/logger.dart';
 import 'package:crypto/crypto.dart';
+import '../../../core/config/cloudinary_config.dart';
 import 'storage_service.dart';
 
 /// Cloudinary Storage Service Implementation
+/// Uses HTTP API directly for maximum compatibility and control
 /// Supports images, videos, audio, and all file types
 /// Works across Web, iOS, Android, and Desktop platforms
 class CloudinaryStorageService implements StorageService {
@@ -16,6 +18,7 @@ class CloudinaryStorageService implements StorageService {
   final Logger _logger;
 
   static const String _uploadUrl = 'https://api.cloudinary.com/v1_1';
+  static const Duration _uploadTimeout = Duration(minutes: 5);
 
   CloudinaryStorageService({
     required String cloudName,
@@ -48,15 +51,11 @@ class CloudinaryStorageService implements StorageService {
       // Determine resource type
       final resourceType = _getResourceType(mediaType);
 
-      // Read file bytes - platform specific handling
+      // Read file bytes - works on both web and native
       late List<int> fileBytes;
       late int fileSize;
 
       try {
-        // Both web and native File objects support readAsBytes()
-        // This works because:
-        // - Native: dart:io.File has readAsBytes()
-        // - Web: http.File from image_picker has readAsBytes()
         fileBytes = await file.readAsBytes();
         fileSize = fileBytes.length;
         _logger.d('Successfully read file bytes: $fileSize bytes');
@@ -67,6 +66,7 @@ class CloudinaryStorageService implements StorageService {
       }
 
       _logger.d('File size: $fileSize bytes');
+      _logger.d('Resource type: $resourceType');
 
       // Create multipart request
       final request = http.MultipartRequest(
@@ -74,7 +74,7 @@ class CloudinaryStorageService implements StorageService {
         Uri.parse('$_uploadUrl/$_cloudName/$resourceType/upload'),
       );
 
-      // Add file with bytes instead of stream
+      // Add file with bytes
       request.files.add(
         http.MultipartFile.fromBytes(
           'file',
@@ -89,12 +89,24 @@ class CloudinaryStorageService implements StorageService {
       request.fields['public_id'] = _extractPublicId(filename);
       request.fields['overwrite'] = 'true';
 
+      // Generate signature for authenticated upload
+      final timestamp = (DateTime.now().millisecondsSinceEpoch ~/ 1000).toString();
+      request.fields['timestamp'] = timestamp;
+
+      final signature = _generateSignature({
+        'public_id': _extractPublicId(filename),
+        'folder': folder ?? 'uploads',
+        'overwrite': 'true',
+        'timestamp': timestamp,
+      });
+      request.fields['signature'] = signature;
+
       _logger.d('Sending multipart request to Cloudinary...');
 
-      // Send request
+      // Send request with timeout
       final streamedResponse = await request.send().timeout(
-        const Duration(minutes: 5),
-        onTimeout: () => throw Exception('Upload timeout after 5 minutes'),
+        _uploadTimeout,
+        onTimeout: () => throw Exception('Upload timeout after ${_uploadTimeout.inMinutes} minutes'),
       );
 
       final response = await http.Response.fromStream(streamedResponse);
@@ -104,7 +116,7 @@ class CloudinaryStorageService implements StorageService {
       if (response.statusCode == 200) {
         _logger.i('File uploaded successfully to Cloudinary');
 
-        // Parse JSON response properly
+        // Parse JSON response
         try {
           final Map<String, dynamic> responseJson = jsonDecode(response.body);
           final secureUrl = responseJson['secure_url'] as String?;
@@ -199,7 +211,6 @@ class CloudinaryStorageService implements StorageService {
   }
 
   /// Get Cloudinary-specific URL with transformations
-  /// This is a helper method for creating optimized URLs
   String getTransformedUrl(
     String url, {
     int? width,
@@ -227,14 +238,13 @@ class CloudinaryStorageService implements StorageService {
   }
 
   /// Get thumbnail URL (optimized for social media)
-  /// Perfect for profile pictures and post thumbnails
   String getThumbnailUrl(String url, {int size = 200}) {
     return getTransformedUrl(
       url,
       width: size,
       height: size,
       crop: 'thumb',
-      gravity: 'face', // Smart crop focusing on faces
+      gravity: 'face',
       quality: 'auto',
       format: 'auto',
     );
@@ -247,19 +257,19 @@ class CloudinaryStorageService implements StorageService {
       width: size,
       height: size,
       crop: 'fill',
-      gravity: 'face_center', // Center on face
+      gravity: 'face_center',
       quality: 'auto',
       format: 'auto',
     );
   }
 
-  /// Get responsive URL (auto-optimized for different screen sizes)
+  /// Get responsive URL (auto-optimized)
   String getResponsiveUrl(String url, {int? maxWidth}) {
     return getTransformedUrl(
       url,
       width: maxWidth,
       quality: 'auto',
-      format: 'auto', // Automatically serves WebP, AVIF, etc.
+      format: 'auto',
     );
   }
 
@@ -292,22 +302,16 @@ class CloudinaryStorageService implements StorageService {
     }
 
     // Extract public ID from URL
-    // Example: https://res.cloudinary.com/demo/image/upload/v1234/folder/image.jpg
-    // Public ID: folder/image
     try {
       final uri = Uri.parse(urlOrPath);
       final segments = uri.pathSegments;
 
-      // Find 'upload' segment and take everything after version number
       final uploadIndex = segments.indexOf('upload');
       if (uploadIndex != -1 && uploadIndex < segments.length - 1) {
         final afterUpload = segments.sublist(uploadIndex + 1);
-
-        // Skip version number (starts with 'v')
         final startIndex = afterUpload.first.startsWith('v') ? 1 : 0;
         final publicIdSegments = afterUpload.sublist(startIndex);
 
-        // Join segments and remove extension
         final publicIdWithExt = publicIdSegments.join('/');
         final lastDot = publicIdWithExt.lastIndexOf('.');
         return lastDot != -1
@@ -329,7 +333,7 @@ class CloudinaryStorageService implements StorageService {
       case MediaType.video:
         return 'video';
       case MediaType.audio:
-        return 'video'; // Audio treated as video in Cloudinary
+        return 'video';
       case MediaType.document:
         return 'raw';
     }
@@ -357,7 +361,176 @@ class CloudinaryStorageService implements StorageService {
         .join('&');
 
     final signatureString = '$paramsString$_apiSecret';
-    // Use sha1.convert() with proper encoding
     return sha1.convert(utf8.encode(signatureString)).toString();
+  }
+
+  // ============================================================================
+  // TRANSFORMATION HELPERS - Advanced Image Optimization
+  // ============================================================================
+
+  /// Get optimized avatar URL with face detection
+  /// Automatically crops to face center and optimizes for profile display
+  String getOptimizedAvatarUrl(String url, {int size = 200}) {
+    return getTransformedUrl(
+      url,
+      width: size,
+      height: size,
+      crop: 'fill',
+      gravity: 'face',
+      quality: 'auto',
+      format: 'auto',
+    );
+  }
+
+  /// Get optimized banner/cover image URL
+  /// Maintains aspect ratio and optimizes for header display
+  String getOptimizedBannerUrl(String url) {
+    return getTransformedUrl(
+      url,
+      width: 1200,
+      height: 400,
+      crop: 'limit',
+      quality: 'auto',
+      format: 'auto',
+    );
+  }
+
+  /// Get optimized feed image URL
+  /// Perfect for social media feed display
+  String getOptimizedFeedUrl(String url) {
+    return getTransformedUrl(
+      url,
+      width: 600,
+      crop: 'limit',
+      quality: 'auto',
+      format: 'auto',
+    );
+  }
+
+  /// Get mobile-optimized URL for responsive images
+  /// Optimized for mobile devices with smaller file sizes
+  String getMobileOptimizedUrl(String url) {
+    return getTransformedUrl(
+      url,
+      width: 480,
+      crop: 'limit',
+      quality: 'auto',
+      format: 'auto',
+    );
+  }
+
+  /// Get tablet-optimized URL for responsive images
+  /// Optimized for tablet devices
+  String getTabletOptimizedUrl(String url) {
+    return getTransformedUrl(
+      url,
+      width: 768,
+      crop: 'limit',
+      quality: 'auto',
+      format: 'auto',
+    );
+  }
+
+  /// Get desktop-optimized URL for responsive images
+  /// High-quality version for desktop displays
+  String getDesktopOptimizedUrl(String url) {
+    return getTransformedUrl(
+      url,
+      width: 1920,
+      crop: 'limit',
+      quality: 'auto',
+      format: 'auto',
+    );
+  }
+
+  /// Generate multiple optimized URLs for responsive images
+  /// Returns a map with device-specific URLs
+  Map<String, String> getResponsiveImageUrls(String url) {
+    return {
+      'mobile': getMobileOptimizedUrl(url),
+      'tablet': getTabletOptimizedUrl(url),
+      'desktop': getDesktopOptimizedUrl(url),
+      'original': url,
+    };
+  }
+
+  /// Get video thumbnail URL from video
+  /// Extracts first frame or specified time as thumbnail
+  String getVideoThumbnailUrl(
+    String videoUrl, {
+    int width = 400,
+    int height = 225,
+    double timeOffset = 0,
+  }) {
+    final publicId = _extractPublicId(videoUrl);
+
+    // Build transformation for video thumbnail
+    final transformations = <String>[
+      'c_fill',
+      'w_$width',
+      'h_$height',
+      'q_auto',
+      'f_auto',
+    ];
+
+    if (timeOffset > 0) {
+      transformations.add('so_${(timeOffset * 1000).toInt()}'); // time in milliseconds
+    }
+
+    final transformStr = transformations.join(',');
+
+    return 'https://res.cloudinary.com/$_cloudName/video/upload/$transformStr/$publicId';
+  }
+
+  /// Build custom transformation URL
+  /// Allows complete control over transformations
+  String buildCustomUrl(
+    String url, {
+    required List<String> transformations,
+  }) {
+    final publicId = _extractPublicId(url);
+    final transformStr = transformations.isEmpty
+        ? ''
+        : '${transformations.join(',')}/';
+
+    return 'https://res.cloudinary.com/$_cloudName/image/upload/$transformStr$publicId';
+  }
+
+  /// Get delivery optimization URL with explicit settings
+  /// More control than getTransformedUrl for advanced use cases
+  String getOptimizedUrl(
+    String url, {
+    int? width,
+    int? height,
+    String? crop,
+    String? gravity,
+    String? quality,
+    String? format,
+    String? radius,
+    String? angle,
+    String? border,
+    String? backgroundColor,
+    List<String>? effects,
+  }) {
+    final publicId = _extractPublicId(url);
+    final transformations = <String>[];
+
+    if (width != null) transformations.add('w_$width');
+    if (height != null) transformations.add('h_$height');
+    if (crop != null) transformations.add('c_$crop');
+    if (gravity != null) transformations.add('g_$gravity');
+    if (quality != null) transformations.add('q_$quality');
+    if (format != null) transformations.add('f_$format');
+    if (radius != null) transformations.add('r_$radius');
+    if (angle != null) transformations.add('a_$angle');
+    if (border != null) transformations.add('b_$border');
+    if (backgroundColor != null) transformations.add('b_$backgroundColor');
+    if (effects != null && effects.isNotEmpty) {
+      transformations.addAll(effects);
+    }
+
+    final transformStr = transformations.isEmpty ? '' : '${transformations.join(',')}/';
+
+    return 'https://res.cloudinary.com/$_cloudName/image/upload/$transformStr$publicId';
   }
 }

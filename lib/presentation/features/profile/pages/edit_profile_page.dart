@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../features/auth/providers/auth_state_provider.dart';
 import '../providers/profile_edit_provider.dart';
 import '../widgets/avatar_widget.dart';
+import '../../../../shared/widgets/media/cloudinary_image_widget.dart';
 
 class EditProfilePage extends ConsumerStatefulWidget {
   const EditProfilePage({super.key});
@@ -207,29 +208,38 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
         // Banner Image
         Stack(
           children: [
-            Container(
-              width: double.infinity,
-              height: 150,
-              decoration: BoxDecoration(
-                color: Colors.grey[200],
+            if (editState.selectedBannerImage != null)
+              Container(
+                width: double.infinity,
+                height: 150,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  image: DecorationImage(
+                    image: FileImage(File(editState.selectedBannerImage!.path)),
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              )
+            else if (editState.user?.banner != null && editState.user!.banner!.isNotEmpty)
+              // Use CloudinaryImageWidget for optimized banner display
+              CloudinaryImageWidget(
+                imageUrl: editState.user!.banner!,
+                width: double.infinity,
+                height: 150,
+                transformationType: 'banner',
                 borderRadius: BorderRadius.circular(12),
-                image: editState.selectedBannerImage != null
-                    ? DecorationImage(
-                        image: FileImage(File(editState.selectedBannerImage!.path)),
-                        fit: BoxFit.cover,
-                      )
-                    : editState.user?.banner != null
-                        ? DecorationImage(
-                            image: NetworkImage(editState.user!.banner!),
-                            fit: BoxFit.cover,
-                          )
-                        : null,
+                fit: BoxFit.cover,
+              )
+            else
+              Container(
+                width: double.infinity,
+                height: 150,
+                decoration: BoxDecoration(
+                  color: Colors.grey[200],
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.image, size: 48, color: Colors.grey),
               ),
-              child: editState.user?.banner == null &&
-                      editState.selectedBannerImage == null
-                  ? const Icon(Icons.image, size: 48, color: Colors.grey)
-                  : null,
-            ),
             Positioned(
               bottom: 8,
               right: 8,
@@ -287,6 +297,16 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                 CircleAvatar(
                   radius: 50,
                   backgroundImage: FileImage(File(editState.selectedAvatarImage!.path)),
+                )
+              else if (editState.user?.avatar != null && editState.user!.avatar!.isNotEmpty)
+                // Use CloudinaryImageWidget for optimized avatar display
+                CloudinaryImageWidget(
+                  imageUrl: editState.user!.avatar!,
+                  width: 100,
+                  height: 100,
+                  transformationType: 'avatar',
+                  borderRadius: BorderRadius.circular(50),
+                  fit: BoxFit.cover,
                 )
               else
                 AvatarWidget(
