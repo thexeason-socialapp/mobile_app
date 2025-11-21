@@ -4,7 +4,6 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:logger/logger.dart';
 import 'package:crypto/crypto.dart';
-import '../../../core/config/cloudinary_config.dart';
 import 'storage_service.dart';
 
 /// Cloudinary Storage Service Implementation
