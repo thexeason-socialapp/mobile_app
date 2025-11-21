@@ -162,24 +162,15 @@ class CloudinaryImageWidget extends StatelessWidget {
     // Get transformation based on type
     final transformation = _getTransformation();
 
-    // Add gravity if specified
+    // The transformation string already contains width/height from presets
+    // Only add gravity if specified and not already in transformation
     var finalTransformation = transformation;
-    if (gravity != null) {
+    if (gravity != null && !transformation.contains('g_')) {
       finalTransformation = '$transformation,g_$gravity';
     }
 
-    // Add size constraints if specified
-    if (width != null || height != null) {
-      final widthParam = width != null ? 'w_${width!.toInt()}' : '';
-      final heightParam = height != null ? 'h_${height!.toInt()}' : '';
-      final sizeParams = [widthParam, heightParam]
-          .where((p) => p.isNotEmpty)
-          .join(',');
-
-      if (sizeParams.isNotEmpty) {
-        finalTransformation = '$sizeParams,$finalTransformation';
-      }
-    }
+    // Don't add size constraints here - they're already in the preset transformations
+    // Adding them again would cause duplicates (w_100,h_100,... in the URL)
 
     return _buildCustomUrl([finalTransformation]);
   }
@@ -227,6 +218,20 @@ class CloudinaryImageWidget extends StatelessWidget {
         return imageUrl; // Not a standard Cloudinary URL
       }
 
+      // Extract cloud name (should be between domain and /image)
+      // Path structure: /cloudname/image/upload/transformations/publicid
+      String cloudName = '';
+      if (uploadIndex > 1) {
+        cloudName = segments[uploadIndex - 2]; // Get cloud name
+      } else if (uploadIndex > 0) {
+        cloudName = segments[uploadIndex - 1]; // Fallback
+      }
+
+      // If we can't find cloud name in path, try to extract from full URL
+      if (cloudName.isEmpty) {
+        cloudName = CloudinaryConfig.cloudName;
+      }
+
       // Extract public ID and path after upload
       final afterUpload = segments.sublist(uploadIndex + 1);
       final publicIdWithExt = afterUpload.join('/');
@@ -242,9 +247,9 @@ class CloudinaryImageWidget extends StatelessWidget {
           ? ''
           : '${transformations.join(',')}/';
 
-      // Reconstruct URL
+      // Reconstruct URL with cloud name
       final baseUrl = '${uri.scheme}://${uri.host}';
-      return '$baseUrl/image/upload/$transformStr$publicId';
+      return '$baseUrl/$cloudName/image/upload/$transformStr$publicId';
     } catch (e) {
       // If parsing fails, return original URL
       return imageUrl;
