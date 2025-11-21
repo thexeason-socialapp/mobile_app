@@ -303,7 +303,7 @@ class CloudinaryImageWidget extends StatelessWidget {
         child: Icon(
           Icons.image,
           color: Colors.grey[400],
-          size: (width ?? 100) * 0.3,
+          size: 48.0,
         ),
       ),
     );
@@ -323,9 +323,13 @@ class CloudinaryImageWidget extends StatelessWidget {
       width: width,
       height: height,
       color: Colors.grey[200],
-      child: const Center(
-        child: CircularProgressIndicator(
-          strokeWidth: 2,
+      child: Center(
+        child: SizedBox(
+          width: 48.0,
+          height: 48.0,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+          ),
         ),
       ),
     );
@@ -341,7 +345,7 @@ class CloudinaryImageWidget extends StatelessWidget {
         child: Icon(
           Icons.broken_image,
           color: Colors.grey[600],
-          size: (width ?? 100) * 0.3,
+          size: 48.0,
         ),
       ),
     );
