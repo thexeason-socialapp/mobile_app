@@ -41,6 +41,24 @@ abstract class UserRepository {
     required String imagePath,
   });
 
+  /// Update user avatar URL
+  /// Saves the avatar URL to the database (after upload to Cloudinary)
+  /// Updates both Firestore and local cache
+  /// Returns updated [User] with new avatar URL
+  Future<User> updateUserAvatarUrl({
+    required String userId,
+    required String avatarUrl,
+  });
+
+  /// Update user banner URL
+  /// Saves the banner URL to the database (after upload to Cloudinary)
+  /// Updates both Firestore and local cache
+  /// Returns updated [User] with new banner URL
+  Future<User> updateUserBannerUrl({
+    required String userId,
+    required String bannerUrl,
+  });
+
   /// Follow a user
   /// Updates follower/following counts for both users
   Future<void> followUser({

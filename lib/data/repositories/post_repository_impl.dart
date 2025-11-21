@@ -12,10 +12,16 @@ class PostRepositoryImpl implements PostRepository {
     required String userId,
     int limit = 20,
     String? lastPostId,
+    List<String>? followedUserIds,
   }) async {
+    // Note: PostsApi uses DocumentSnapshot for cursor-based pagination
+    // For now, we ignore lastPostId and fetch from the beginning
+    // TODO: Implement proper cursor-based pagination by storing DocumentSnapshot
     return await _postsApi.getFeedPosts(
       userId: userId,
       limit: limit,
+      lastDocument: null,
+      followedUserIds: followedUserIds ?? const [],
     );
   }
 

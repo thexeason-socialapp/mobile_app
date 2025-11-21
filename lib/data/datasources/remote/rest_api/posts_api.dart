@@ -16,18 +16,20 @@ class PostsApi {
   })  : _firestore = firestore,
         _logger = logger;
 
-  /// Get feed posts for a user (chronological order)
+  /// Get feed posts (posts from followed users first, then all others)
+  /// If followedUserIds is empty, returns all posts in chronological order
   Future<List<Post>> getFeedPosts({
     required String userId,
     int limit = 20,
     DocumentSnapshot? lastDocument,
+    List<String> followedUserIds = const [],
   }) async {
     try {
       Query query = _firestore
           .collection('posts')
           .where('deletedAt', isNull: true)
           .orderBy('createdAt', descending: true)
-          .limit(limit);
+          .limit(limit * 2); // Fetch more to ensure we have enough after filtering
 
       if (lastDocument != null) {
         query = query.startAfterDocument(lastDocument);
@@ -35,9 +37,30 @@ class PostsApi {
 
       final snapshot = await query.get();
 
-      return snapshot.docs
+      final allPosts = snapshot.docs
           .map((doc) => PostModel.fromFirestore(doc).toEntity())
           .toList();
+
+      // If user has no followers, return all posts
+      if (followedUserIds.isEmpty) {
+        return allPosts.take(limit).toList();
+      }
+
+      // Sort posts: followed users first, then others
+      final followedPosts = <Post>[];
+      final otherPosts = <Post>[];
+
+      for (final post in allPosts) {
+        if (followedUserIds.contains(post.userId)) {
+          followedPosts.add(post);
+        } else {
+          otherPosts.add(post);
+        }
+      }
+
+      // Combine: followed posts first, then others
+      final sortedPosts = [...followedPosts, ...otherPosts];
+      return sortedPosts.take(limit).toList();
     } catch (e) {
       _logger.e('Error getting feed posts: $e');
       rethrow;

@@ -231,6 +231,66 @@ class UsersApi {
     }
   }
 
+  /// Update user avatar URL (for Cloudinary uploads)
+  /// Saves the Cloudinary URL to the user's Firestore document
+  /// Returns the updated user model with new avatar URL
+  Future<UserModel> updateUserAvatarUrl({
+    required String userId,
+    required String avatarUrl,
+  }) async {
+    try {
+      _logger.i('Updating avatar URL for user: $userId');
+      _logger.d('Avatar URL: $avatarUrl');
+
+      // Update user document with new avatar URL
+      await _firestore
+          .collection(_usersCollection)
+          .doc(userId)
+          .update({
+        'avatar': avatarUrl,
+        'updatedAt': DateTime.now().toIso8601String(),
+      });
+
+      _logger.i('Avatar URL updated successfully');
+
+      // Return updated user
+      return await getUserById(userId);
+    } catch (e) {
+      _logger.e('Error updating avatar URL: $e');
+      rethrow;
+    }
+  }
+
+  /// Update user banner URL (for Cloudinary uploads)
+  /// Saves the Cloudinary URL to the user's Firestore document
+  /// Returns the updated user model with new banner URL
+  Future<UserModel> updateUserBannerUrl({
+    required String userId,
+    required String bannerUrl,
+  }) async {
+    try {
+      _logger.i('Updating banner URL for user: $userId');
+      _logger.d('Banner URL: $bannerUrl');
+
+      // Update user document with new banner URL
+      await _firestore
+          .collection(_usersCollection)
+          .doc(userId)
+          .update({
+        'banner': bannerUrl,
+        'updatedAt': DateTime.now().toIso8601String(),
+      });
+
+      _logger.i('Banner URL updated successfully');
+
+      // Return updated user
+      return await getUserById(userId);
+    } catch (e) {
+      _logger.e('Error updating banner URL: $e');
+      rethrow;
+    }
+  }
+
   // ========================================
   // FOLLOW/UNFOLLOW OPERATIONS
   // ========================================

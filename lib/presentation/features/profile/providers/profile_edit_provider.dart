@@ -189,17 +189,20 @@ class ProfileEditNotifier extends StateNotifier<ProfileEditState> {
         throw Exception('Avatar upload failed');
       }
 
-      // Update local state immediately with the avatar URL
-      final userWithAvatar = state.user!.copyWith(avatar: avatarUrl);
+      // Save the Cloudinary URL to the database
+      final updatedUser = await _userRepository.updateUserAvatarUrl(
+        userId: userId,
+        avatarUrl: avatarUrl,
+      );
+
+      // Update local state with the database-persisted user
       state = state.copyWith(
-        user: userWithAvatar,
+        user: updatedUser,
         isSaving: false,
         successMessage: 'Avatar updated successfully',
         clearAvatarImage: true,
       );
 
-      // Return success immediately without waiting for Firestore update
-      // This prevents app crashes from Firestore serialization issues
       return true;
     } catch (e) {
       state = state.copyWith(
@@ -229,17 +232,20 @@ class ProfileEditNotifier extends StateNotifier<ProfileEditState> {
         throw Exception('Banner upload failed');
       }
 
-      // Update local state immediately with the banner URL
-      final userWithBanner = state.user!.copyWith(banner: bannerUrl);
+      // Save the Cloudinary URL to the database
+      final updatedUser = await _userRepository.updateUserBannerUrl(
+        userId: userId,
+        bannerUrl: bannerUrl,
+      );
+
+      // Update local state with the database-persisted user
       state = state.copyWith(
-        user: userWithBanner,
+        user: updatedUser,
         isSaving: false,
         successMessage: 'Banner updated successfully',
         clearBannerImage: true,
       );
 
-      // Return success immediately without waiting for Firestore update
-      // This prevents app crashes from Firestore serialization issues
       return true;
     } catch (e) {
       state = state.copyWith(

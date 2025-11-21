@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../domain/entities/post.dart';
 import '../../../../domain/repositories/post_repository.dart';
+import '../../../../domain/repositories/user_repository.dart';
 import '../../../../core/di/providers.dart';
 import '../../auth/providers/auth_state_provider.dart';
 
@@ -45,12 +46,15 @@ class FeedState {
 /// Feed State Notifier
 class FeedNotifier extends StateNotifier<FeedState> {
   final PostRepository _postRepository;
+  final UserRepository _userRepository;
   final String userId;
 
   FeedNotifier({
     required PostRepository postRepository,
+    required UserRepository userRepository,
     required this.userId,
   })  : _postRepository = postRepository,
+        _userRepository = userRepository,
         super(const FeedState()) {
     loadFeed();
   }
@@ -62,9 +66,23 @@ class FeedNotifier extends StateNotifier<FeedState> {
     state = state.copyWith(isLoading: true, clearError: true);
 
     try {
+      // Fetch the list of users the current user is following
+      List<String> followedUserIds = [];
+      try {
+        final followingUsers = await _userRepository.getFollowing(
+          userId: userId,
+          limit: 1000, // Get all following users
+        );
+        followedUserIds = followingUsers.map((user) => user.id).toList();
+      } catch (e) {
+        // If fetching following list fails, continue with empty list
+        // This allows the feed to still show all posts
+      }
+
       final posts = await _postRepository.getFeedPosts(
         userId: userId,
         limit: 20,
+        followedUserIds: followedUserIds,
       );
 
       state = state.copyWith(
@@ -88,10 +106,23 @@ class FeedNotifier extends StateNotifier<FeedState> {
     state = state.copyWith(isLoadingMore: true);
 
     try {
+      // Fetch the list of users the current user is following
+      List<String> followedUserIds = [];
+      try {
+        final followingUsers = await _userRepository.getFollowing(
+          userId: userId,
+          limit: 1000, // Get all following users
+        );
+        followedUserIds = followingUsers.map((user) => user.id).toList();
+      } catch (e) {
+        // If fetching following list fails, continue with empty list
+      }
+
       final newPosts = await _postRepository.getFeedPosts(
         userId: userId,
         limit: 20,
         lastPostId: state.lastPostId,
+        followedUserIds: followedUserIds,
       );
 
       state = state.copyWith(
@@ -133,11 +164,13 @@ class FeedNotifier extends StateNotifier<FeedState> {
 /// Feed State Provider
 final feedProvider = StateNotifierProvider<FeedNotifier, FeedState>((ref) {
   final postRepository = ref.watch(postRepositoryProvider);
+  final userRepository = ref.watch(userRepositoryProvider);
   final authState = ref.watch(authProvider);
   final userId = authState.user?.id ?? '';
 
   return FeedNotifier(
     postRepository: postRepository,
+    userRepository: userRepository,
     userId: userId,
   );
 });

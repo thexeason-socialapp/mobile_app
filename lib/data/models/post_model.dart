@@ -91,6 +91,8 @@ class PostModel extends Post {
   /// Create PostModel from Firestore document
   factory PostModel.fromFirestore(DocumentSnapshot doc) {
     final json = doc.data() as Map<String, dynamic>;
+    // Ensure the document ID is included in the data
+    json['id'] = doc.id;
     return PostModel.fromJson(json);
   }
 

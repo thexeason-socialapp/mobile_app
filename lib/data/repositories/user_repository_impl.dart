@@ -144,6 +144,56 @@ class UserRepositoryImpl implements UserRepository {
     }
   }
 
+  @override
+  Future<User> updateUserAvatarUrl({
+    required String userId,
+    required String avatarUrl,
+  }) async {
+    try {
+      _logger.d('Updating avatar URL for user: $userId');
+
+      // Update avatar URL in Firestore
+      final updatedUser = await _usersApi.updateUserAvatarUrl(
+        userId: userId,
+        avatarUrl: avatarUrl,
+      );
+
+      // Update local cache
+      await _userBox.saveUser(updatedUser);
+
+      _logger.i('Avatar URL updated successfully for user: $userId');
+      return updatedUser.toEntity();
+    } catch (e) {
+      _logger.e('Error updating avatar URL: $e');
+      rethrow;
+    }
+  }
+
+  @override
+  Future<User> updateUserBannerUrl({
+    required String userId,
+    required String bannerUrl,
+  }) async {
+    try {
+      _logger.d('Updating banner URL for user: $userId');
+
+      // Update banner URL in Firestore
+      final updatedUser = await _usersApi.updateUserBannerUrl(
+        userId: userId,
+        bannerUrl: bannerUrl,
+      );
+
+      // Update local cache
+      await _userBox.saveUser(updatedUser);
+
+      _logger.i('Banner URL updated successfully for user: $userId');
+      return updatedUser.toEntity();
+    } catch (e) {
+      _logger.e('Error updating banner URL: $e');
+      rethrow;
+    }
+  }
+
   // ========================================
   // FOLLOW/UNFOLLOW OPERATIONS
   // ========================================

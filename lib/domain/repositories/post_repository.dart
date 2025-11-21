@@ -6,13 +6,15 @@
 import '../entities/post.dart';
 
 abstract class PostRepository {
-  /// Get feed posts (chronological or algorithmic)
+  /// Get feed posts (posts from followed users first, then all others)
   /// Returns list of [Post] objects
   /// Supports pagination
+  /// If followedUserIds is empty, returns all posts in chronological order
   Future<List<Post>> getFeedPosts({
     required String userId,
     int limit = 20,
     String? lastPostId,
+    List<String>? followedUserIds,
   });
 
   /// Get a single post by ID
